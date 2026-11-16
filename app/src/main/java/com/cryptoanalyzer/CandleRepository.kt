@@ -1,4 +1,4 @@
-package com.cryptoanalyzer
+package com.goldanalyzer
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
