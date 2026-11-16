@@ -8,8 +8,8 @@
     <application
     android:allowBackup="true"
     android:label="Gold Analyzer"
-    android:icon="@drawable/ic_launcher_foreground"
-    android:roundIcon="@drawable/ic_launcher_foreground"
+    android:icon="@mipmap/ic_launcher"
+android:roundIcon="@mipmap/ic_launcher"
     android:theme="@android:style/Theme.Material.Light.NoActionBar"
     android:usesCleartextTraffic="false">
 
