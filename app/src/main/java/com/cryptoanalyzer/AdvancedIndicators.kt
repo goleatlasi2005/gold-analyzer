@@ -1,4 +1,4 @@
-package com.cryptoanalyzer
+package com.goldanalyzer
 
 data class IchimokuPoint(
     val tenkan: Double?,
