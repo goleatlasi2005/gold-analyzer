@@ -5,11 +5,11 @@ plugins {
 }
 
 android {
-    namespace = "com.cryptoanalyzer"
+    namespace = "com.goldanalyzer"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.cryptoanalyzer"
+        applicationId = "com.goldanalyzer"
         minSdk = 26
         targetSdk = 35
         versionCode = 1
