@@ -4,6 +4,7 @@ package com.goldanalyzer
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -16,6 +17,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.delay
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 private val Gold = Color(0xFFD4A52C)
 private val DarkGold = Color(0xFF987019)
@@ -42,6 +47,37 @@ fun GoldAnalyzerApp() {
         mutableStateOf("۱۵ دقیقه")
     }
 
+    var quote by remember {
+        mutableStateOf<GoldSpotQuote?>(null)
+    }
+
+    var loading by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+
+    val repository = remember { GoldSpotRepository() }
+
+    LaunchedEffect(selectedMarket) {
+        if (selectedMarket == "انس جهانی طلا") {
+            while (true) {
+                loading = quote == null
+                errorMessage = null
+
+                try {
+                    quote = repository.getXauUsdSpot()
+                } catch (e: Exception) {
+                    errorMessage = e.message ?: "خطا در دریافت قیمت"
+                }
+
+                loading = false
+                delay(30_000L)
+            }
+        } else {
+            quote = null
+            errorMessage = null
+            loading = false
+        }
+    }
+
     val markets = listOf(
         "طلای ۱۸ عیار",
         "صندوق طلای عیار",
@@ -65,7 +101,6 @@ fun GoldAnalyzerApp() {
                     .padding(18.dp),
                 verticalArrangement = Arrangement.spacedBy(18.dp)
             ) {
-
                 Row(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -74,15 +109,8 @@ fun GoldAnalyzerApp() {
                         color = Gold,
                         modifier = Modifier.size(54.dp)
                     ) {
-                        Box(
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                "🪙",
-                                color = Color.White,
-                                fontSize = 29.sp,
-                                fontWeight = FontWeight.Bold
-                            )
+                        Box(contentAlignment = Alignment.Center) {
+                            Text("🪙", fontSize = 29.sp)
                         }
                     }
 
@@ -123,21 +151,17 @@ fun GoldAnalyzerApp() {
                                     Color(0xFFFFF4D6)
                                 else Color.White
                         ),
-                        border = androidx.compose.foundation.BorderStroke(
+                        border = BorderStroke(
                             1.dp,
                             if (selectedMarket == market)
-                                Gold
-                            else Color(0xFFEAEAEA)
+                                Gold else Color(0xFFEAEAEA)
                         )
                     ) {
                         Row(
                             modifier = Modifier.padding(17.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(
-                                "🪙",
-                                fontSize = 25.sp
-                            )
+                            Text("🪙", fontSize = 25.sp)
                             Spacer(Modifier.width(12.dp))
                             Text(
                                 market,
@@ -195,7 +219,7 @@ fun GoldAnalyzerApp() {
                     colors = CardDefaults.cardColors(
                         containerColor = Color.White
                     ),
-                    border = androidx.compose.foundation.BorderStroke(
+                    border = BorderStroke(
                         1.dp,
                         Color(0xFFE9DFCA)
                     )
@@ -223,18 +247,79 @@ fun GoldAnalyzerApp() {
                             color = TextGray
                         )
 
-                        HorizontalDivider(
-                            color = Color(0xFFEAEAEA)
-                        )
+                        HorizontalDivider(color = Color(0xFFEAEAEA))
+
+                        if (selectedMarket == "انس جهانی طلا") {
+                            when {
+                                loading -> {
+                                    CircularProgressIndicator(
+                                        color = DarkGold
+                                    )
+                                    Text("در حال دریافت قیمت انس...")
+                                }
+
+                                quote != null -> {
+                                    Text(
+                                        "قیمت هر اونس به دلار",
+                                        color = TextGray
+                                    )
+
+                                    Text(
+                                        String.format(
+                                            Locale.US,
+                                            "%,.2f USD",
+                                            quote!!.priceUsdPerTroyOunce
+                                        ),
+                                        color = DarkGold,
+                                        fontSize = 27.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+
+                                    Text(
+                                        "منبع: ${quote!!.source}",
+                                        color = TextGray
+                                    )
+
+                                    val time = SimpleDateFormat(
+                                        "HH:mm:ss",
+                                        Locale.getDefault()
+                                    ).format(
+                                        Date(quote!!.observedAtMillis)
+                                    )
+
+                                    Text(
+                                        "زمان قیمت: $time",
+                                        color = TextGray
+                                    )
+
+                                    Text(
+                                        if (quote!!.isFresh)
+                                            "داده تازه و قابل استفاده"
+                                        else
+                                            "هشدار: داده تازه نیست؛ سیگنال صادر نمی‌شود",
+                                        color = if (quote!!.isFresh)
+                                            Color(0xFF26834A)
+                                        else Color(0xFFB3261E)
+                                    )
+                                }
+
+                                errorMessage != null -> {
+                                    Text(
+                                        "خطا: $errorMessage",
+                                        color = Color(0xFFB3261E)
+                                    )
+                                }
+                            }
+                        } else {
+                            Text(
+                                "منبع قیمت این بازار هنوز متصل نشده است.",
+                                color = TextGray,
+                                fontSize = 14.sp
+                            )
+                        }
 
                         Text(
-                            "داده بازار هنوز متصل نشده است.",
-                            color = TextGray,
-                            fontSize = 14.sp
-                        )
-
-                        Text(
-                            "پس از اتصال منابع قیمت، تحلیل روند و سیگنال‌ها در این بخش نمایش داده می‌شوند.",
+                            "تحلیل تکنیکال پس از اتصال داده‌های کندلی فعال می‌شود.",
                             color = TextGray,
                             fontSize = 13.sp
                         )
@@ -249,7 +334,7 @@ fun GoldAnalyzerApp() {
                 )
 
                 Text(
-                    "EMA  •  RSI  •  MACD  •  Ichimoku  •  Fibonacci  •  ATR  •  ADX",
+                    "EMA • RSI • MACD • Ichimoku • Fibonacci • ATR • ADX",
                     color = DarkGold,
                     fontSize = 13.sp
                 )
