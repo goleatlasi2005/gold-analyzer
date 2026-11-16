@@ -39,23 +39,23 @@ class GoldSpotRepository(
 
                 val root = JSONObject(body)
 
-                val json = root.optJSONObject("xau")
-                    ?: error("اطلاعات انس در پاسخ وجود ندارد")
+                val json = root.optJSONObject("xau") ?: root
 
-                val state = json.optJSONObject("data_state")
-                    ?: error("وضعیت داده مشخص نیست")
-
-                val status = state.optString("status", "unavailable")
-
-                if (status == "unavailable") {
-                    error("قیمت انس در دسترس نیست")
-                }
-
-                val price = json.optDouble("spot_usd_oz", Double.NaN)
+                val price = json.optDouble(
+                    "spot_usd_oz",
+                    Double.NaN
+                )
 
                 if (!price.isFinite() || price <= 0.0) {
                     error("قیمت دریافتی معتبر نیست")
                 }
+
+                val state =
+                    json.optJSONObject("data_state")
+                        ?: root.optJSONObject("data_state")
+                        ?: JSONObject()
+
+                val status = state.optString("status", "")
 
                 val priceTime = json.optString("price_as_of")
                     .takeIf { it.isNotBlank() && it != "null" }
@@ -65,7 +65,7 @@ class GoldSpotRepository(
 
                 val responseTime = json.optString("updated_at")
                     .takeIf { it.isNotBlank() && it != "null" }
-                    ?: error("زمان تولید پاسخ مشخص نیست")
+                    ?: error("زمان پاسخ مشخص نیست")
 
                 fun parseTime(value: String): Long {
                     return try {
@@ -79,24 +79,38 @@ class GoldSpotRepository(
                 val updatedAt = parseTime(responseTime)
                 val now = System.currentTimeMillis()
 
-                val priceAge = (now - observedAt) / 1000L
+                val calculatedAge = (now - observedAt) / 1000L
+                val apiAge = json.optLong(
+                    "age_seconds",
+                    calculatedAge
+                )
+
                 val responseAge = (now - updatedAt) / 1000L
 
+                val age = maxOf(
+                    0L,
+                    apiAge,
+                    responseAge
+                )
+
+                val stale = json.optBoolean(
+                    "stale",
+                    true
+                )
+
                 val fresh =
-                    status == "fresh" &&
-                    !json.optBoolean("stale", false) &&
-                    priceAge in 0..180 &&
-                    responseAge in 0..180
+                    !stale &&
+                    age in 0..180 &&
+                    (status.isBlank() || status == "fresh")
 
                 GoldSpotQuote(
                     priceUsdPerTroyOunce = price,
-                    source = json.optString("price_source", "XAUS"),
-                    observedAtMillis = observedAt,
-                    ageSeconds = maxOf(
-                        0L,
-                        priceAge,
-                        responseAge
+                    source = json.optString(
+                        "price_source",
+                        "XAUS"
                     ),
+                    observedAtMillis = observedAt,
+                    ageSeconds = age,
                     isFresh = fresh
                 )
             }
