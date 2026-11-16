@@ -1,5 +1,5 @@
 
-package com.cryptoanalyzer
+package com.goldanalyzer
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.*
