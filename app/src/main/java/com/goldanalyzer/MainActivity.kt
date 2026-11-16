@@ -78,7 +78,7 @@ fun GoldAnalyzerApp() {
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
-                                "₿",
+                                "🪙",
                                 color = Color.White,
                                 fontSize = 29.sp,
                                 fontWeight = FontWeight.Bold
