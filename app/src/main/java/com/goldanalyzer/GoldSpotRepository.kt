@@ -53,28 +53,47 @@ class GoldSpotRepository(
                     error("قیمت دریافتی معتبر نیست")
                 }
 
-                val timestamp = json.optString("price_as_of")
+                val priceTime = json.optString("price_as_of")
                     .takeIf { it.isNotBlank() && it != "null" }
                     ?: state.optString("as_of")
                         .takeIf { it.isNotBlank() && it != "null" }
-                    ?: error("زمان قیمت مشخص نیست")
+                    ?: error("زمان ثبت قیمت مشخص نیست")
 
-                val observedAt = try {
-                    Instant.parse(timestamp).toEpochMilli()
-                } catch (_: Exception) {
-                    error("زمان قیمت معتبر نیست")
+                val responseTime = json.optString("updated_at")
+                    .takeIf { it.isNotBlank() && it != "null" }
+                    ?: error("زمان تولید پاسخ مشخص نیست")
+
+                fun parseTime(value: String): Long {
+                    return try {
+                        Instant.parse(value).toEpochMilli()
+                    } catch (_: Exception) {
+                        error("زمان دریافتی معتبر نیست")
+                    }
                 }
 
-                val age = (
-                    (System.currentTimeMillis() - observedAt) / 1000L
-                ).coerceAtLeast(0L)
+                val observedAt = parseTime(priceTime)
+                val updatedAt = parseTime(responseTime)
+                val now = System.currentTimeMillis()
+
+                val priceAge = (now - observedAt) / 1000L
+                val responseAge = (now - updatedAt) / 1000L
+
+                val fresh =
+                    status == "fresh" &&
+                    !json.optBoolean("stale", false) &&
+                    priceAge in 0..180 &&
+                    responseAge in 0..180
 
                 GoldSpotQuote(
                     priceUsdPerTroyOunce = price,
                     source = json.optString("price_source", "XAUS"),
                     observedAtMillis = observedAt,
-                    ageSeconds = age,
-                    isFresh = status == "fresh" && age <= 180L
+                    ageSeconds = maxOf(
+                        0L,
+                        priceAge,
+                        responseAge
+                    ),
+                    isFresh = fresh
                 )
             }
         }
