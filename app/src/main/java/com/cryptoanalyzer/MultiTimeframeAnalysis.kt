@@ -1,5 +1,5 @@
 
-package com.cryptoanalyzer
+package com.goldanalyzer
 
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
