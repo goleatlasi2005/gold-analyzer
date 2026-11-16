@@ -7,7 +7,7 @@
 
     <application
     android:allowBackup="true"
-    android:label="Crypto Analyzer"
+    android:label="Gold Analyzer"
     android:icon="@drawable/ic_launcher_foreground"
     android:roundIcon="@drawable/ic_launcher_foreground"
     android:theme="@android:style/Theme.Material.Light.NoActionBar"
