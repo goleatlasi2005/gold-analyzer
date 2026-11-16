@@ -1,3 +1,4 @@
+
 package com.goldanalyzer
 
 import kotlinx.coroutines.Dispatchers
@@ -36,7 +37,10 @@ class GoldSpotRepository(
                 val body = response.body?.string()
                     ?: error("پاسخی دریافت نشد")
 
-                val json = JSONObject(body)
+                val root = JSONObject(body)
+
+                val json = root.optJSONObject("xau")
+                    ?: error("اطلاعات انس در پاسخ وجود ندارد")
 
                 val state = json.optJSONObject("data_state")
                     ?: error("وضعیت داده مشخص نیست")
