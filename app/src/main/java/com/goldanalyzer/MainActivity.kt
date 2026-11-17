@@ -1,4 +1,3 @@
-
 package com.goldanalyzer
 
 import android.os.Bundle
@@ -448,6 +447,7 @@ fun GoldAnalyzerApp() {
                             }
                         }
                     },
+                    ,
                     enabled = !refreshing,
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.buttonColors(
@@ -702,7 +702,8 @@ fun GoldAnalyzerApp() {
                                     TradingSignalContent(
                                         signal = tradingSignal,
                                         candleCount = completedCandles.size,
-                                        candleTime = lastAnalyzedCandle?.openTime
+                                        candleTime = lastAnalyzedCandle?.openTime,
+                                        oneWayMarket = selectedMarket == "صندوق طلای عیار"
                                     )
                                 }
                             }
@@ -783,6 +784,8 @@ fun GoldAnalyzerApp() {
                         Text(
                             "تحلیل مستقل این بازار پس از اتصال منبع کندل معتبر فعال می‌شود.",
                             color = TextGray
+                        )
+                                                    color = TextGray
                         )
                     }
                 }
@@ -964,7 +967,8 @@ private fun SupportResistanceRow(
 private fun TradingSignalContent(
     signal: TradingSignal,
     candleCount: Int,
-    candleTime: Long?
+    candleTime: Long?,
+    oneWayMarket: Boolean = false
 ) {
     val signalColor = when (signal.type) {
         SignalType.BUY -> Green
@@ -974,7 +978,7 @@ private fun TradingSignalContent(
 
     val signalText = when (signal.type) {
         SignalType.BUY -> "خرید"
-        SignalType.SELL -> "فروش"
+        SignalType.SELL -> if (oneWayMarket) "فروش واحدهای موجود" else "فروش"
         SignalType.HOLD -> "صبر"
     }
 
@@ -1028,13 +1032,27 @@ private fun TradingSignalContent(
 
             HorizontalDivider(color = Color(0xFFEAEAEA))
 
-            Text(
-                "قیمت مرجع ورود: ${formatRial(signal.entryPrice)}",
-                color = TextDark,
-                fontWeight = FontWeight.Bold
-            )
+            if (oneWayMarket && signal.type == SignalType.SELL) {
+                Text(
+                    "قیمت مرجع فروش: ${formatRial(signal.entryPrice)}",
+                    color = TextDark,
+                    fontWeight = FontWeight.Bold
+                )
 
-            if (signal.type != SignalType.HOLD) {
+                Text(
+                    "این سیگنال فقط برای فروش واحدهایی است که از قبل در اختیار داری؛ فروش استقراضی در صندوق عیار امکان‌پذیر نیست.",
+                    color = Red,
+                    fontSize = 12.sp
+                )
+            } else {
+                Text(
+                    "قیمت مرجع ورود: ${formatRial(signal.entryPrice)}",
+                    color = TextDark,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            if (signal.type == SignalType.BUY) {
                 Text(
                     "حد ضرر: ${formatRial(signal.stopLoss)}",
                     color = Red
@@ -1060,7 +1078,7 @@ private fun TradingSignalContent(
                     color = DarkGold,
                     fontWeight = FontWeight.Bold
                 )
-            } else {
+            } else if (signal.type == SignalType.HOLD) {
                 Text(
                     "شرایط ورود کامل نیست؛ فعلاً معامله‌ای پیشنهاد نمی‌شود.",
                     color = DarkGold
