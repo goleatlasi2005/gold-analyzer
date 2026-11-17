@@ -7,18 +7,25 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONObject
 import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneOffset
 
 data class GoldSpotQuote(
     val priceUsdPerTroyOunce: Double,
     val source: String,
     val observedAtMillis: Long,
     val ageSeconds: Long,
-    val isFresh: Boolean
+    val isFresh: Boolean,
+    val previousDailyCloseUsd: Double?
 )
 
 class GoldSpotRepository(
     private val httpClient: OkHttpClient = OkHttpClient()
 ) {
+    private val historyLock = Any()
+    private var previousCloseCache: Double? = null
+    private var historyFetchedAtMillis = 0L
+
     suspend fun getXauUsdSpot(): GoldSpotQuote =
         withContext(Dispatchers.IO) {
 
@@ -113,8 +120,80 @@ class GoldSpotRepository(
                     ),
                     observedAtMillis = observedAt,
                     ageSeconds = age,
-                    isFresh = fresh
+                    isFresh = fresh,
+                    previousDailyCloseUsd = getPreviousDailyClose()
                 )
+            }
+        }
+
+    private suspend fun getPreviousDailyClose(): Double? =
+        withContext(Dispatchers.IO) {
+
+            val now = System.currentTimeMillis()
+
+            synchronized(historyLock) {
+                if (
+                    previousCloseCache != null &&
+                    now - historyFetchedAtMillis < 6 * 60 * 60 * 1000L
+                ) {
+                    return@withContext previousCloseCache
+                }
+            }
+
+            try {
+                val request = Request.Builder()
+                    .url("https://xaus.com/api/v1/history")
+                    .header("Accept", "application/json")
+                    .get()
+                    .build()
+
+                val result = httpClient.newCall(request).execute().use { response ->
+                    if (!response.isSuccessful) {
+                        return@use null
+                    }
+
+                    val body = response.body?.string()
+                        ?: return@use null
+
+                    val points = JSONObject(body).optJSONArray("points")
+                        ?: return@use null
+
+                    val todayUtc = LocalDate.now(ZoneOffset.UTC)
+
+                    var previous: Pair<LocalDate, Double>? = null
+
+                    for (i in 0 until points.length()) {
+                        val item = points.optJSONObject(i) ?: continue
+
+                        val date = try {
+                            LocalDate.parse(item.optString("d"))
+                        } catch (_: Exception) {
+                            continue
+                        }
+
+                        val close = item.optDouble("c", 0.0)
+
+                        if (date.isBefore(todayUtc) && close > 0.0) {
+                            if (
+                                previous == null ||
+                                date.isAfter(previous!!.first)
+                            ) {
+                                previous = date to close
+                            }
+                        }
+                    }
+
+                    previous?.second
+                }
+
+                synchronized(historyLock) {
+                    previousCloseCache = result
+                    historyFetchedAtMillis = now
+                }
+
+                result
+            } catch (_: Exception) {
+                null
             }
         }
 }
