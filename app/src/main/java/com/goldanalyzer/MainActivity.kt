@@ -1,3 +1,4 @@
+
 package com.goldanalyzer
 
 import android.os.Bundle
@@ -456,9 +457,9 @@ fun GoldAnalyzerApp() {
                                             )
 
                                             Text(
-                                                "زمان آخرین کندل: " +
+                                                "شروع آخرین کندل: " +
                                                     formatTehranTime(
-                                                        latest.closeTime
+                                                        latest.openTime
                                                     ),
                                                 color = TextGray
                                             )
@@ -546,7 +547,7 @@ private fun formatTehranTime(
     timestamp: Long
 ): String {
     val formatter = SimpleDateFormat(
-        "HH:mm:ss",
+        "yyyy/MM/dd HH:mm:ss",
         Locale.getDefault()
     )
     formatter.timeZone =
@@ -554,4 +555,3 @@ private fun formatTehranTime(
 
     return formatter.format(Date(timestamp))
 }
-
