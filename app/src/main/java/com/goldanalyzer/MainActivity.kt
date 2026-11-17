@@ -292,7 +292,7 @@ val selectedAyiarSeries = if (intervalMinutes == 0) {
 
     // محاسبه سیگنال با حداقل کندل و EMA متناسب با تایم‌فریم
     val tradingSignal = remember(
-        ayiarCandles,
+        selectedAyiarSeries,
         selectedMarket,
         selectedTimeframe
     ) {
@@ -309,7 +309,7 @@ val selectedAyiarSeries = if (intervalMinutes == 0) {
 
     // محاسبه حمایت و مقاومت استاتیک و داینامیک
     val supportResistanceLevels = remember(
-        ayiarCandles,
+        selectedAyiarSeries,
         selectedMarket
     ) {
         if (selectedMarket == "صندوق طلای عیار") {
