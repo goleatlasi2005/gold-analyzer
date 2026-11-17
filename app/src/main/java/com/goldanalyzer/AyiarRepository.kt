@@ -6,7 +6,6 @@ import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONObject
-import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -41,6 +40,7 @@ class AyiarRepository(
         private val DATE_FORMAT = DateTimeFormatter.BASIC_ISO_DATE
     }
 
+    // دریافت قیمت لحظه‌ای از TSETMC
     suspend fun getQuote(): AyiarQuote = withContext(Dispatchers.IO) {
 
         val url = "$QUOTE_URL/$INSTRUMENT_CODE"
@@ -82,43 +82,20 @@ class AyiarRepository(
         }
     }
 
+    // دریافت کندل‌های کوتاه‌مدت از بورس‌ویو مفید
     suspend fun getCandles(
         date: LocalDate = LocalDate.now(TEHRAN_ZONE),
-        intervalMinutes: Int = 5,
-        historyDays: Int = when (intervalMinutes) {
-            60 -> 90
-            240 -> 180
-            else -> 30
-        }
+        intervalMinutes: Int = 5
     ): CandleSeries = withContext(Dispatchers.IO) {
 
         require(intervalMinutes in listOf(5, 15, 30, 60, 240)) {
             "تایم‌فریم انتخاب‌شده معتبر نیست"
         }
 
-        require(historyDays in 1..3650) {
-            "بازه تاریخچه معتبر نیست"
-        }
-
-        // مفید تایم‌فریم ۲۴۰ دقیقه را مستقیم پشتیبانی نمی‌کند.
-        // برای آن، کندل‌های یک‌ساعته دریافت و تجمیع می‌شوند.
-        val requestResolution = if (intervalMinutes == 240) {
-            60
-        } else {
-            intervalMinutes
-        }
-
-        // برای ساخت تعداد کافی کندل ۴ ساعته، ۱۸۰ روز داده یک‌ساعته می‌گیریم.
-        val requestHistoryDays = if (intervalMinutes == 240) {
-            180
-        } else {
-            historyDays
-        }
-
         val url = "$WORKER_URL" +
             "?symbol=IRTKMOFD0001" +
-            "&resolution=$requestResolution" +
-            "&days=$requestHistoryDays"
+            "&resolution=$intervalMinutes" +
+            "&days=30"
 
         val request = Request.Builder()
             .url(url)
@@ -206,7 +183,7 @@ class AyiarRepository(
                         close = close,
                         volume = volume.coerceAtLeast(0.0),
                         closeTime = openTime +
-                            requestResolution * 60_000L - 1L
+                            intervalMinutes * 60_000L - 1L
                     )
                 )
             }
@@ -214,87 +191,21 @@ class AyiarRepository(
             val sortedCandles = candles
                 .distinctBy { it.openTime }
                 .sortedBy { it.openTime }
-
-            val finalCandles = if (intervalMinutes == 240) {
-                aggregateFourHourCandles(sortedCandles)
-            } else {
-                sortedCandles
-            }
-
-            val limitedCandles = finalCandles
                 .takeLast(TARGET_INTRADAY_CANDLES)
 
-            if (limitedCandles.isEmpty()) {
+            if (sortedCandles.isEmpty()) {
                 error("هیچ کندل معتبری از مفید دریافت نشد")
             }
 
             CandleSeries(
                 symbol = "عیار",
                 interval = "${intervalMinutes}m",
-                candles = limitedCandles
+                candles = sortedCandles
             )
         }
     }
 
-    private fun aggregateFourHourCandles(
-        hourlyCandles: List<Candle>
-    ): List<Candle> {
-
-        val grouped = hourlyCandles
-            .mapNotNull { candle ->
-
-                val localDateTime = Instant
-                    .ofEpochMilli(candle.openTime)
-                    .atZone(TEHRAN_ZONE)
-
-                val hour = localDateTime.hour
-
-                // ساعات معاملات عیار: ۱۲ تا ۱۸ تهران
-                if (hour !in 12..17) {
-                    return@mapNotNull null
-                }
-
-                val bucketHour = if (hour < 16) 12 else 16
-
-                val key = localDateTime.toLocalDate() to bucketHour
-
-                key to candle
-            }
-            .groupBy(
-                keySelector = { it.first },
-                valueTransform = { it.second }
-            )
-
-        return grouped.mapNotNull { (key, candles) ->
-
-            val ordered = candles.sortedBy { it.openTime }
-
-            if (ordered.isEmpty()) {
-                return@mapNotNull null
-            }
-
-            val first = ordered.first()
-            val last = ordered.last()
-
-            val expectedCount = if (key.second == 12) 4 else 2
-
-            // کندل ناقص یک بازه را وارد تاریخچه نمی‌کنیم.
-            if (ordered.size != expectedCount) {
-                return@mapNotNull null
-            }
-
-            Candle(
-                openTime = first.openTime,
-                open = first.open,
-                high = ordered.maxOf { it.high },
-                low = ordered.minOf { it.low },
-                close = last.close,
-                volume = ordered.sumOf { it.volume },
-                closeTime = last.closeTime
-            )
-        }.sortedBy { it.openTime }
-    }
-
+    // تاریخچه روزانه همچنان از TSETMC دریافت می‌شود
     suspend fun getDailyCandles(
         count: Int = 500
     ): CandleSeries = withContext(Dispatchers.IO) {
@@ -336,7 +247,7 @@ class AyiarRepository(
 
                 val dateText = dateValue.toString().padStart(8, '0')
 
-                val parsedDate = try {
+                val date = try {
                     LocalDate.parse(dateText, DATE_FORMAT)
                 } catch (_: Exception) {
                     continue
@@ -358,7 +269,7 @@ class AyiarRepository(
                     continue
                 }
 
-                val openTime = parsedDate
+                val openTime = date
                     .atStartOfDay(TEHRAN_ZONE)
                     .toInstant()
                     .toEpochMilli()
