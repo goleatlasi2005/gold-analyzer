@@ -1,4 +1,3 @@
-
 package com.goldanalyzer
 
 import android.os.Bundle
@@ -25,7 +24,6 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.text.SimpleDateFormat
 import java.time.DayOfWeek
-import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.ZonedDateTime
@@ -115,27 +113,32 @@ fun GoldAnalyzerApp() {
     }
 
     suspend fun loadAyiarChart() {
-        chartLoading = true
+        // اگر نمودار قبلی وجود دارد، آن را هنگام دریافت داده جدید
+        // مخفی نکن؛ فقط در بارگذاری اولیه حالت انتظار نشان بده.
+        if (ayiarCandles?.candles.isNullOrEmpty()) {
+            chartLoading = true
+        }
+
         chartError = null
 
         try {
-            if (intervalMinutes == 0) {
+            val newCandles = if (intervalMinutes == 0) {
                 if (ayiarDailyCandles == null) {
                     ayiarDailyCandles =
                         ayiarRepository.getDailyCandles(500)
                 }
-                ayiarCandles = ayiarDailyCandles
+                ayiarDailyCandles
             } else {
-                ayiarCandles = ayiarRepository.getCandles(
+                ayiarRepository.getCandles(
                     date = LocalDate.now(TehranZone),
                     intervalMinutes = intervalMinutes
                 )
             }
 
-            if (ayiarCandles == null ||
-                ayiarCandles?.candles.isNullOrEmpty()
-            ) {
+            if (newCandles?.candles.isNullOrEmpty()) {
                 chartError = "کندلی برای نمایش دریافت نشد."
+            } else {
+                ayiarCandles = newCandles
             }
         } catch (e: Exception) {
             chartError = e.message ?: "خطا در دریافت نمودار"
@@ -185,10 +188,9 @@ fun GoldAnalyzerApp() {
         }
     }
 
-    LaunchedEffect(selectedMarket, selectedTimeframe) {
+    // به‌روزرسانی قیمت مستقل از نمودار
+    LaunchedEffect(selectedMarket) {
         priceError = null
-        chartError = null
-        refreshStatus = null
 
         when (selectedMarket) {
             "انس جهانی طلا" -> {
@@ -223,8 +225,6 @@ fun GoldAnalyzerApp() {
                             } finally {
                                 priceLoading = false
                             }
-
-                            loadAyiarChart()
                         }
                         delay(10_000L)
                     } else {
@@ -236,6 +236,32 @@ fun GoldAnalyzerApp() {
             else -> {
                 priceError =
                     "منبع قیمت این بازار هنوز متصل نشده است."
+            }
+        }
+    }
+
+    // به‌روزرسانی نمودار مستقل و متناسب با تایم‌فریم
+    LaunchedEffect(selectedMarket, selectedTimeframe) {
+        chartError = null
+
+        if (selectedMarket == "صندوق طلای عیار") {
+            // بارگذاری اولیه نمودار
+            refreshMutex.withLock {
+                loadAyiarChart()
+            }
+
+            while (true) {
+                if (isAyiarMarketOpen()) {
+                    delay(chartRefreshIntervalMillis(intervalMinutes))
+
+                    if (isAyiarMarketOpen()) {
+                        refreshMutex.withLock {
+                            loadAyiarChart()
+                        }
+                    }
+                } else {
+                    delay(60_000L)
+                }
             }
         }
     }
@@ -546,27 +572,33 @@ fun GoldAnalyzerApp() {
                 ExpandableSection("نمودار قیمت") {
                     when (selectedMarket) {
                         "صندوق طلای عیار" -> {
-                            if (chartLoading) {
-                                CircularProgressIndicator(color = DarkGold)
-                                Text("در حال دریافت نمودار...")
-                            } else {
-                                val candles = ayiarCandles?.candles.orEmpty()
-                                if (candles.isNotEmpty()) {
+                            val candles = ayiarCandles?.candles.orEmpty()
+
+                            if (candles.isNotEmpty()) {
+                                Text(
+                                    "تعداد کندل‌ها: ${candles.size}",
+                                    color = TextGray
+                                )
+                                CandlestickChart(
+                                    candles = candles,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                                if (chartError != null) {
                                     Text(
-                                        "تعداد کندل‌ها: ${candles.size}",
-                                        color = TextGray
-                                    )
-                                    CandlestickChart(
-                                        candles = candles,
-                                        modifier = Modifier.fillMaxWidth()
-                                    )
-                                } else {
-                                    Text(
-                                        chartError
-                                            ?: "نموداری برای نمایش موجود نیست.",
+                                        "به‌روزرسانی نمودار ناموفق بود؛ " +
+                                            "نمودار قبلی نمایش داده می‌شود.",
                                         color = TextGray
                                     )
                                 }
+                            } else if (chartLoading) {
+                                CircularProgressIndicator(color = DarkGold)
+                                Text("در حال دریافت نمودار...")
+                            } else {
+                                Text(
+                                    chartError
+                                        ?: "نموداری برای نمایش موجود نیست.",
+                                    color = TextGray
+                                )
                             }
                         }
 
@@ -658,6 +690,14 @@ private fun ExpandableSection(
                 )
             }
         }
+    }
+}
+
+private fun chartRefreshIntervalMillis(intervalMinutes: Int): Long {
+    return if (intervalMinutes <= 0) {
+        24 * 60 * 60 * 1000L
+    } else {
+        intervalMinutes * 60 * 1000L
     }
 }
 
