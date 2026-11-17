@@ -100,9 +100,16 @@ fun CombinedSignalsSection(
 
                     while (true) {
                         try {
+                            val historyDays = when (minutes) {
+                                60 -> 90
+                                240 -> 730
+                                else -> 30
+                            }
+
                             val series = repository.getCandles(
                                 date = LocalDate.now(CombinedTehranZone),
-                                intervalMinutes = minutes
+                                intervalMinutes = minutes,
+                                historyDays = historyDays
                             )
 
                             if (series.candles.isNotEmpty()) {
