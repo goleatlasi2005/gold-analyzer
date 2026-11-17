@@ -81,13 +81,12 @@ class AyiarRepository(
         }
     }
 
-    // دریافت کندل‌های بورس‌ویو مفید با تاریخچه متناسب با تایم‌فریم
     suspend fun getCandles(
         date: LocalDate = LocalDate.now(TEHRAN_ZONE),
         intervalMinutes: Int = 5,
         historyDays: Int = when (intervalMinutes) {
             60 -> 90
-            240 -> 365
+            240 -> 730
             else -> 30
         }
     ): CandleSeries = withContext(Dispatchers.IO) {
@@ -213,7 +212,6 @@ class AyiarRepository(
         }
     }
 
-    // تاریخچه روزانه همچنان از TSETMC دریافت می‌شود
     suspend fun getDailyCandles(
         count: Int = 500
     ): CandleSeries = withContext(Dispatchers.IO) {
