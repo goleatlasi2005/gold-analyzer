@@ -557,7 +557,7 @@ fun GoldAnalyzerApp() {
 
                                 ayiarQuote?.let { q ->
                                     Text(
-                                        "قیمت لحظه‌ای هر واحد صندوق",
+                                        "قیمت آخرین معامله",
                                         color = TextGray
                                     )
                                     Text(
