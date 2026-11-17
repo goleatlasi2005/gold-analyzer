@@ -1,3 +1,4 @@
+
 package com.goldanalyzer
 
 import kotlin.math.abs
@@ -28,7 +29,9 @@ object SignalEngine {
 
     fun analyze(
         candles: List<Candle>,
-        nowMillis: Long = System.currentTimeMillis()
+        nowMillis: Long = System.currentTimeMillis(),
+        minimumCandles: Int = 200,
+        longEmaPeriod: Int = 200
     ): TradingSignal? {
 
         val validCandles = candles
@@ -44,8 +47,9 @@ object SignalEngine {
             .distinctBy { it.openTime }
             .sortedBy { it.openTime }
 
-        // برای EMA200 و تحلیل قابل اتکا حداقل 200 کندل لازم است.
-        if (validCandles.size < 200) return null
+        val requiredCount = maxOf(minimumCandles, longEmaPeriod)
+
+        if (validCandles.size < requiredCount) return null
 
         val closes = validCandles.map { it.close }
         val last = validCandles.lastIndex
@@ -56,8 +60,10 @@ object SignalEngine {
             ?: return null
         val ema50 = TechnicalIndicators.ema(closes, 50)[last]
             ?: return null
-        val ema200 = TechnicalIndicators.ema(closes, 200)[last]
-            ?: return null
+        val emaLong = TechnicalIndicators.ema(
+            closes,
+            longEmaPeriod
+        )[last] ?: return null
 
         val rsi = TechnicalIndicators.rsi(closes)[last]
             ?: return null
@@ -78,11 +84,7 @@ object SignalEngine {
         val ichimoku = AdvancedIndicators.ichimoku(validCandles)[last]
         val fibonacci = AdvancedIndicators.fibonacci(validCandles)
 
-        if (
-            price <= 0.0 ||
-            atr <= 0.0 ||
-            !atr.isFinite()
-        ) {
+        if (price <= 0.0 || atr <= 0.0 || !atr.isFinite()) {
             return null
         }
 
@@ -92,46 +94,42 @@ object SignalEngine {
         var score = 0
         val reasons = mutableListOf<String>()
 
-        // RSI
         when {
             rsi >= 55.0 && rsi < 70.0 -> {
                 score += 8
                 reasons.add("RSI مومنتوم صعودی را تأیید می‌کند")
             }
-
             rsi > 30.0 && rsi <= 45.0 -> {
                 score -= 8
                 reasons.add("RSI مومنتوم نزولی را تأیید می‌کند")
             }
-
             rsi >= 70.0 -> {
                 score -= 4
                 reasons.add("RSI وارد محدوده اشباع خرید شده است")
             }
-
             rsi <= 30.0 -> {
                 score += 4
                 reasons.add("RSI وارد محدوده اشباع فروش شده است")
             }
         }
 
-        // EMA 20 / 50 / 200
         when {
-            ema20 > ema50 && ema50 > ema200 -> {
+            ema20 > ema50 && ema50 > emaLong -> {
                 score += 15
-                reasons.add("چیدمان EMA20، EMA50 و EMA200 صعودی است")
+                reasons.add(
+                    "چیدمان EMA20، EMA50 و EMA$longEmaPeriod صعودی است"
+                )
             }
-
-            ema20 < ema50 && ema50 < ema200 -> {
+            ema20 < ema50 && ema50 < emaLong -> {
                 score -= 15
-                reasons.add("چیدمان EMA20، EMA50 و EMA200 نزولی است")
+                reasons.add(
+                    "چیدمان EMA20، EMA50 و EMA$longEmaPeriod نزولی است"
+                )
             }
-
             ema20 > ema50 -> {
                 score += 6
                 reasons.add("EMA20 بالاتر از EMA50 است")
             }
-
             ema20 < ema50 -> {
                 score -= 6
                 reasons.add("EMA20 پایین‌تر از EMA50 است")
@@ -146,7 +144,6 @@ object SignalEngine {
             reasons.add("قیمت پایین‌تر از EMA20 قرار دارد")
         }
 
-        // MACD
         if (macd.macd > macd.signal) {
             score += 10
             reasons.add("MACD وضعیت صعودی دارد")
@@ -163,7 +160,6 @@ object SignalEngine {
             reasons.add("هیستوگرام MACD منفی است")
         }
 
-        // ADX
         if (adx != null) {
             if (adx >= 25.0) {
                 when {
@@ -171,7 +167,6 @@ object SignalEngine {
                         score += 8
                         reasons.add("ADX قدرت روند صعودی را تأیید می‌کند")
                     }
-
                     ema20 < ema50 -> {
                         score -= 8
                         reasons.add("ADX قدرت روند نزولی را تأیید می‌کند")
@@ -184,7 +179,6 @@ object SignalEngine {
             }
         }
 
-        // Ichimoku
         val tenkan = ichimoku.tenkan
         val kijun = ichimoku.kijun
         val senkouA = ichimoku.senkouA
@@ -209,7 +203,6 @@ object SignalEngine {
                     score += 6
                     reasons.add("قیمت بالاتر از ابر ایچیموکو است")
                 }
-
                 price < cloudBottom -> {
                     score -= 6
                     reasons.add("قیمت پایین‌تر از ابر ایچیموکو است")
@@ -217,30 +210,25 @@ object SignalEngine {
             }
         }
 
-        // Bollinger Bands
         when {
             price > bands.upper -> {
                 score += 3
                 reasons.add("قیمت بالاتر از باند بالایی بولینگر است")
             }
-
             price < bands.lower -> {
                 score -= 3
                 reasons.add("قیمت پایین‌تر از باند پایینی بولینگر است")
             }
-
             price > bands.middle -> {
                 score += 3
                 reasons.add("قیمت بالاتر از میانگین بولینگر است")
             }
-
             price < bands.middle -> {
                 score -= 3
                 reasons.add("قیمت پایین‌تر از میانگین بولینگر است")
             }
         }
 
-        // Stochastic
         if (previousStochastic != null) {
             when {
                 previousStochastic < 20.0 &&
@@ -248,7 +236,6 @@ object SignalEngine {
                     score += 6
                     reasons.add("استوکاستیک از اشباع فروش خارج شده است")
                 }
-
                 previousStochastic > 80.0 &&
                     currentStochastic <= 80.0 -> {
                     score -= 6
@@ -257,17 +244,13 @@ object SignalEngine {
             }
         }
 
-        // Fibonacci
         if (fibonacci != null) {
             val nearest = fibonacci.levels.values.minByOrNull {
                 abs(price - it)
             }
 
             if (nearest != null) {
-                val tolerance = maxOf(
-                    atr * 0.35,
-                    price * 0.002
-                )
+                val tolerance = maxOf(atr * 0.35, price * 0.002)
 
                 if (abs(price - nearest) <= tolerance) {
                     if (price >= nearest) {
@@ -281,7 +264,6 @@ object SignalEngine {
             }
         }
 
-        // Volume confirmation
         val previousVolumes = validCandles
             .dropLast(1)
             .takeLast(20)
@@ -299,7 +281,6 @@ object SignalEngine {
                         score += 6
                         reasons.add("حجم معاملات و کندل صعودی تأییدکننده‌اند")
                     }
-
                     current.close < current.open -> {
                         score -= 6
                         reasons.add("حجم معاملات و کندل نزولی تأییدکننده‌اند")
@@ -308,18 +289,15 @@ object SignalEngine {
             }
         }
 
-        // Market structure: HH/HL or LH/LL
         when (structure) {
             "HH/HL" -> {
                 score += 10
                 reasons.add("ساختار بازار صعودی است: سقف و کف بالاتر")
             }
-
             "LH/LL" -> {
                 score -= 10
                 reasons.add("ساختار بازار نزولی است: سقف و کف پایین‌تر")
             }
-
             else -> {
                 reasons.add("ساختار بازار هنوز جهت مشخصی ندارد")
             }
@@ -334,16 +312,12 @@ object SignalEngine {
         }
 
         val trend = when {
-            ema20 > ema50 && ema50 > ema200 && (adx ?: 0.0) >= 20.0 ->
-                "صعودی قوی"
-
-            ema20 < ema50 && ema50 < ema200 && (adx ?: 0.0) >= 20.0 ->
-                "نزولی قوی"
-
+            ema20 > ema50 && ema50 > emaLong &&
+                (adx ?: 0.0) >= 20.0 -> "صعودی قوی"
+            ema20 < ema50 && ema50 < emaLong &&
+                (adx ?: 0.0) >= 20.0 -> "نزولی قوی"
             ema20 > ema50 -> "صعودی"
-
             ema20 < ema50 -> "نزولی"
-
             else -> "خنثی"
         }
 
@@ -443,8 +417,7 @@ object SignalEngine {
 
             if (denominator > 0.0) {
                 dxValues.add(
-                    abs(plusDi - minusDi) /
-                        denominator * 100.0
+                    abs(plusDi - minusDi) / denominator * 100.0
                 )
             }
         }
@@ -466,17 +439,14 @@ object SignalEngine {
 
         val firstHigh = firstHalf.maxOf { it.high }
         val secondHigh = secondHalf.maxOf { it.high }
-
         val firstLow = firstHalf.minOf { it.low }
         val secondLow = secondHalf.minOf { it.low }
 
         return when {
             secondHigh > firstHigh && secondLow > firstLow ->
                 "HH/HL"
-
             secondHigh < firstHigh && secondLow < firstLow ->
                 "LH/LL"
-
             else -> "خنثی"
         }
     }
