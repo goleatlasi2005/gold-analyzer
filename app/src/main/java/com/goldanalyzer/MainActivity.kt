@@ -113,8 +113,6 @@ fun GoldAnalyzerApp() {
     }
 
     suspend fun loadAyiarChart() {
-        // اگر نمودار قبلی وجود دارد، آن را هنگام دریافت داده جدید
-        // مخفی نکن؛ فقط در بارگذاری اولیه حالت انتظار نشان بده.
         if (ayiarCandles?.candles.isNullOrEmpty()) {
             chartLoading = true
         }
@@ -240,12 +238,11 @@ fun GoldAnalyzerApp() {
         }
     }
 
-    // به‌روزرسانی نمودار مستقل و متناسب با تایم‌فریم
+    // به‌روزرسانی نمودار متناسب با تایم‌فریم
     LaunchedEffect(selectedMarket, selectedTimeframe) {
         chartError = null
 
         if (selectedMarket == "صندوق طلای عیار") {
-            // بارگذاری اولیه نمودار
             refreshMutex.withLock {
                 loadAyiarChart()
             }
@@ -269,6 +266,29 @@ fun GoldAnalyzerApp() {
     val ayiarPercent = ayiarQuote?.let {
         calculatePercentChange(it.currentPrice, it.previousClose)
     }
+
+    // فقط کندل‌هایی که زمان بسته‌شدنشان گذشته است وارد تحلیل می‌شوند.
+    val completedCandles = remember(ayiarCandles) {
+        val now = System.currentTimeMillis()
+        ayiarCandles?.candles.orEmpty()
+            .filter { it.closeTime <= now }
+            .sortedBy { it.openTime }
+    }
+
+    // محاسبه سیگنال فقط برای بازاری که داده معتبر آن متصل شده است.
+    val tradingSignal = remember(
+        ayiarCandles,
+        selectedMarket,
+        selectedTimeframe
+    ) {
+        if (selectedMarket == "صندوق طلای عیار") {
+            SignalEngine.analyze(completedCandles)
+        } else {
+            null
+        }
+    }
+
+    val lastAnalyzedCandle = completedCandles.lastOrNull()
 
     MaterialTheme {
         Surface(
@@ -393,10 +413,13 @@ fun GoldAnalyzerApp() {
                             scope.launch {
                                 refreshing = true
                                 refreshStatus = null
-                                refreshSelectedMarket()
-                                refreshStatus =
-                                    "به‌روزرسانی $selectedMarket انجام شد."
-                                refreshing = false
+                                try {
+                                    refreshSelectedMarket()
+                                    refreshStatus =
+                                        "به‌روزرسانی $selectedMarket انجام شد."
+                                } finally {
+                                    refreshing = false
+                                }
                             }
                         }
                     },
@@ -619,29 +642,262 @@ fun GoldAnalyzerApp() {
                 }
 
                 ExpandableSection("سیگنال معاملاتی") {
-                    Text(
-                        "موتور صدور سیگنال هنوز به این صفحه متصل نشده است. " +
-                            "تا زمان تأیید کیفیت و تازگی داده‌ها، سیگنال خرید یا فروش صادر نمی‌شود.",
-                        color = TextGray
-                    )
+                    when (selectedMarket) {
+                        "صندوق طلای عیار" -> {
+                            when {
+                                chartLoading && completedCandles.isEmpty() -> {
+                                    CircularProgressIndicator(color = DarkGold)
+                                    Text("در حال دریافت کندل‌ها برای تحلیل...")
+                                }
+
+                                completedCandles.size < 200 -> {
+                                    Text(
+                                        "برای محاسبه سیگنال معتبر حداقل ۲۰۰ کندل کامل لازم است.",
+                                        color = TextGray
+                                    )
+                                    Text(
+                                        "تعداد کندل کامل فعلی: ${completedCandles.size}",
+                                        color = DarkGold,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Text(
+                                        "در این تایم‌فریم فعلاً سیگنال صادر نمی‌شود.",
+                                        color = Red
+                                    )
+                                }
+
+                                tradingSignal == null -> {
+                                    Text(
+                                        "داده‌های دریافت‌شده برای محاسبه اندیکاتورها کافی یا معتبر نیستند.",
+                                        color = Red
+                                    )
+                                }
+
+                                else -> {
+                                    TradingSignalContent(
+                                        signal = tradingSignal,
+                                        candleCount = completedCandles.size,
+                                        candleTime = lastAnalyzedCandle?.openTime
+                                    )
+                                }
+                            }
+                        }
+
+                        else -> {
+                            Text(
+                                "موتور تحلیل این بازار هنوز به منبع کندل معتبر متصل نشده است.",
+                                color = TextGray
+                            )
+                        }
+                    }
                 }
 
                 ExpandableSection("تحلیل تکنیکال") {
-                    Text(
-                        "ابزارهای موردنظر: EMA 20/50/200، RSI، MACD، " +
-                            "Bollinger Bands، ATR، Ichimoku، Fibonacci و ADX.",
-                        color = TextGray
-                    )
-                    Text(
-                        "تحلیل مستقل هر بازار پس از اتصال موتور تحلیل نمایش داده می‌شود.",
-                        color = TextGray
-                    )
+                    if (selectedMarket == "صندوق طلای عیار") {
+                        Text(
+                            "تایم‌فریم: $selectedTimeframe",
+                            color = DarkGold,
+                            fontWeight = FontWeight.Bold
+                        )
+
+                        Text(
+                            "تعداد کندل‌های کامل: ${completedCandles.size}",
+                            color = TextGray
+                        )
+
+                        if (tradingSignal != null) {
+                            Text(
+                                "جهت روند: ${tradingSignal.trend}",
+                                color = TextDark,
+                                fontWeight = FontWeight.Bold
+                            )
+
+                            tradingSignal.adx?.let {
+                                Text(
+                                    "ADX: ${String.format(Locale.US, "%.2f", it)}",
+                                    color = TextDark
+                                )
+                            }
+
+                            Text(
+                                "ATR: ${formatRial(it = tradingSignal.atr)}",
+                                color = TextDark
+                            )
+
+                            HorizontalDivider(color = Color(0xFFEAEAEA))
+
+                            Text(
+                                "دلایل تحلیل:",
+                                color = DarkGold,
+                                fontWeight = FontWeight.Bold
+                            )
+
+                            tradingSignal.reasons.forEach { reason ->
+                                Text(
+                                    "• $reason",
+                                    color = TextGray
+                                )
+                            }
+                        } else {
+                            Text(
+                                "پس از دریافت حداقل ۲۰۰ کندل کامل، تحلیل اندیکاتورها نمایش داده می‌شود.",
+                                color = TextGray
+                            )
+                        }
+                    } else {
+                        Text(
+                            "تحلیل مستقل این بازار پس از اتصال منبع کندل معتبر فعال می‌شود.",
+                            color = TextGray
+                        )
+                    }
                 }
+
+                Text(
+                    "هشدار: سیگنال‌ها خروجی محاسبات تکنیکال هستند و احتمال سود یا زیان را تضمین نمی‌کنند. این نسخه هنوز بک‌تست عملکرد ندارد.",
+                    color = TextGray,
+                    fontSize = 12.sp
+                )
 
                 Spacer(Modifier.height(12.dp))
             }
         }
     }
+}
+
+@Composable
+private fun TradingSignalContent(
+    signal: TradingSignal,
+    candleCount: Int,
+    candleTime: Long?
+) {
+    val signalColor = when (signal.type) {
+        SignalType.BUY -> Green
+        SignalType.SELL -> Red
+        SignalType.HOLD -> DarkGold
+    }
+
+    val signalText = when (signal.type) {
+        SignalType.BUY -> "خرید"
+        SignalType.SELL -> "فروش"
+        SignalType.HOLD -> "صبر"
+    }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = Color(0xFFFFFEFA)
+        ),
+        border = BorderStroke(1.dp, signalColor),
+        shape = RoundedCornerShape(14.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(9.dp)
+        ) {
+            Text(
+                "وضعیت سیگنال: $signalText",
+                color = signalColor,
+                fontSize = 22.sp,
+                fontWeight = FontWeight.Bold
+            )
+
+            Text(
+                "قدرت امتیاز: ${signal.score} از ۱۰۰",
+                color = TextDark,
+                fontWeight = FontWeight.Bold
+            )
+
+            Text(
+                "شاخص اطمینان محاسباتی: ${signal.confidencePercent}٪",
+                color = TextGray
+            )
+
+            Text(
+                "روند: ${signal.trend}",
+                color = TextDark
+            )
+
+            Text(
+                "تعداد کندل‌های بررسی‌شده: $candleCount",
+                color = TextGray
+            )
+
+            candleTime?.let {
+                Text(
+                    "زمان آخرین کندل تحلیل‌شده: ${formatTehranTime(it)}",
+                    color = TextGray,
+                    fontSize = 12.sp
+                )
+            }
+
+            HorizontalDivider(color = Color(0xFFEAEAEA))
+
+            Text(
+                "قیمت مرجع ورود: ${formatRial(signal.entryPrice)}",
+                color = TextDark,
+                fontWeight = FontWeight.Bold
+            )
+
+            if (signal.type != SignalType.HOLD) {
+                Text(
+                    "حد ضرر: ${formatRial(signal.stopLoss)}",
+                    color = Red
+                )
+
+                Text(
+                    "حد سود اول: ${formatRial(signal.takeProfit1)}",
+                    color = Green
+                )
+
+                Text(
+                    "حد سود دوم: ${formatRial(signal.takeProfit2)}",
+                    color = Green
+                )
+
+                Text(
+                    "حد سود سوم: ${formatRial(signal.takeProfit3)}",
+                    color = Green
+                )
+
+                Text(
+                    "نسبت ریسک به بازده هدف: ۱ به ${String.format(Locale.US, "%.1f", signal.riskRewardRatio)}",
+                    color = DarkGold,
+                    fontWeight = FontWeight.Bold
+                )
+            } else {
+                Text(
+                    "شرایط ورود کامل نیست؛ فعلاً معامله‌ای پیشنهاد نمی‌شود.",
+                    color = DarkGold
+                )
+            }
+
+            HorizontalDivider(color = Color(0xFFEAEAEA))
+
+            Text(
+                "دلایل صدور سیگنال:",
+                color = DarkGold,
+                fontWeight = FontWeight.Bold
+            )
+
+            signal.reasons.forEach { reason ->
+                Text(
+                    "• $reason",
+                    color = TextGray,
+                    fontSize = 13.sp
+                )
+            }
+
+            Text(
+                "این اطمینان، امتیاز الگوریتم است و احتمال آماری موفقیت معامله نیست.",
+                color = TextGray,
+                fontSize = 11.sp
+            )
+        }
+    }
+}
+
+private fun formatRial(it: Double): String {
+    return String.format(Locale.US, "%,.0f ریال", it)
 }
 
 @Composable
