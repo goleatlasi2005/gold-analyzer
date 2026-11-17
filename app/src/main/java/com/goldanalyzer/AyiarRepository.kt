@@ -10,6 +10,7 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 
 class AyiarRepository(
     private val httpClient: OkHttpClient = OkHttpClient()
@@ -21,7 +22,11 @@ class AyiarRepository(
         private const val BASE_URL =
             "https://cdn.tsetmc.com/api/Trade/GetTradeHistory"
 
+        private const val DAILY_URL =
+            "https://cdn.tsetmc.com/api/ClosingPrice/GetClosingPriceDailyList"
+
         private val TEHRAN_ZONE = ZoneId.of("Asia/Tehran")
+        private val DATE_FORMAT = DateTimeFormatter.BASIC_ISO_DATE
     }
 
     private data class Trade(
@@ -40,9 +45,7 @@ class AyiarRepository(
             "تایم‌فریم انتخاب‌شده معتبر نیست"
         }
 
-        // جست‌وجوی آخرین روز معاملاتی تا ۱۴ روز قبل
         for (daysBack in 0..14) {
-
             val targetDate = date.minusDays(daysBack.toLong())
 
             val result = fetchCandlesForDate(
@@ -58,13 +61,105 @@ class AyiarRepository(
         error("در ۱۴ روز گذشته معامله‌ای برای صندوق عیار پیدا نشد")
     }
 
+    suspend fun getDailyCandles(
+        count: Int = 500
+    ): CandleSeries = withContext(Dispatchers.IO) {
+
+        require(count in 1..5000) {
+            "تعداد کندل‌های درخواستی معتبر نیست"
+        }
+
+        val url = "$DAILY_URL/$INSTRUMENT_CODE/$count"
+
+        val request = Request.Builder()
+            .url(url)
+            .header("Accept", "application/json")
+            .header("User-Agent", "Mozilla/5.0")
+            .get()
+            .build()
+
+        httpClient.newCall(request).execute().use { response ->
+
+            if (!response.isSuccessful) {
+                error("خطای دریافت تاریخچه روزانه عیار: ${response.code}")
+            }
+
+            val body = response.body?.string()
+                ?: error("پاسخی از تاریخچه روزانه دریافت نشد")
+
+            val root = JSONObject(body)
+
+            val history = root.optJSONArray("closingPriceDaily")
+                ?: error("تاریخچه روزانه در پاسخ TSETMC وجود ندارد")
+
+            val candles = mutableListOf<Candle>()
+
+            for (i in 0 until history.length()) {
+                val item = history.optJSONObject(i) ?: continue
+
+                val dateValue = item.optLong("dEven", 0L)
+                if (dateValue <= 0L) continue
+
+                val dateText = dateValue.toString().padStart(8, '0')
+
+                val date = try {
+                    LocalDate.parse(dateText, DATE_FORMAT)
+                } catch (_: Exception) {
+                    continue
+                }
+
+                val open = item.optDouble("priceFirst", 0.0)
+                val high = item.optDouble("priceMax", 0.0)
+                val low = item.optDouble("priceMin", 0.0)
+                val close = item.optDouble("pClosing", 0.0)
+                val volume = item.optDouble("qTotTran5J", 0.0)
+
+                if (
+                    open <= 0.0 ||
+                    high <= 0.0 ||
+                    low <= 0.0 ||
+                    close <= 0.0 ||
+                    high < low
+                ) {
+                    continue
+                }
+
+                val openTime = date
+                    .atStartOfDay(TEHRAN_ZONE)
+                    .toInstant()
+                    .toEpochMilli()
+
+                candles.add(
+                    Candle(
+                        openTime = openTime,
+                        open = open,
+                        high = high,
+                        low = low,
+                        close = close,
+                        volume = volume.coerceAtLeast(0.0),
+                        closeTime = openTime + 86_400_000L - 1L
+                    )
+                )
+            }
+
+            if (candles.isEmpty()) {
+                error("هیچ کندل روزانه معتبری برای عیار دریافت نشد")
+            }
+
+            CandleSeries(
+                symbol = "عیار",
+                interval = "1d",
+                candles = candles.sortedBy { it.openTime }
+            )
+        }
+    }
+
     private fun fetchCandlesForDate(
         date: LocalDate,
         intervalMinutes: Int
     ): CandleSeries? {
 
         val dateText = date.toString().replace("-", "")
-
         val url = "$BASE_URL/$INSTRUMENT_CODE/$dateText/false"
 
         val request = Request.Builder()
@@ -87,7 +182,6 @@ class AyiarRepository(
             val history = root.optJSONArray("tradeHistory")
                 ?: error("فهرست معاملات در پاسخ وجود ندارد")
 
-            // روز بدون معامله؛ برو سراغ روز قبل
             if (history.length() == 0) {
                 return@use null
             }
@@ -95,7 +189,6 @@ class AyiarRepository(
             val trades = mutableListOf<Trade>()
 
             for (i in 0 until history.length()) {
-
                 val item = history.optJSONObject(i) ?: continue
 
                 if (item.optInt("canceled", 0) != 0) {
@@ -122,11 +215,7 @@ class AyiarRepository(
                     continue
                 }
 
-                val localTime = LocalTime.of(
-                    hour,
-                    minute,
-                    second
-                )
+                val localTime = LocalTime.of(hour, minute, second)
 
                 val timestamp = date
                     .atTime(localTime)
@@ -153,21 +242,17 @@ class AyiarRepository(
                     .thenBy { it.tradeNumber }
             )
 
-            // ساخت کندل بر اساس ساعت محلی تهران
             val grouped = sortedTrades.groupBy { trade ->
-
                 val localDateTime = Instant
                     .ofEpochMilli(trade.timeMillis)
                     .atZone(TEHRAN_ZONE)
                     .toLocalDateTime()
 
                 val minuteOfDay =
-                    localDateTime.hour * 60 +
-                    localDateTime.minute
+                    localDateTime.hour * 60 + localDateTime.minute
 
                 val bucketMinute =
-                    (minuteOfDay / intervalMinutes) *
-                    intervalMinutes
+                    (minuteOfDay / intervalMinutes) * intervalMinutes
 
                 date.atStartOfDay()
                     .plusMinutes(bucketMinute.toLong())
@@ -176,8 +261,7 @@ class AyiarRepository(
                     .toEpochMilli()
             }
 
-            val intervalMillis =
-                intervalMinutes * 60_000L
+            val intervalMillis = intervalMinutes * 60_000L
 
             val candles = grouped
                 .toSortedMap()
@@ -192,8 +276,7 @@ class AyiarRepository(
                         low = prices.minOrNull()!!,
                         close = bucketTrades.last().price,
                         volume = bucketTrades.sumOf { it.volume },
-                        closeTime = bucketStart +
-                            intervalMillis - 1L
+                        closeTime = bucketStart + intervalMillis - 1L
                     )
                 }
 
