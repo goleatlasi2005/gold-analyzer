@@ -282,12 +282,13 @@ val selectedAyiarSeries = if (intervalMinutes == 0) {
     }
 
     // فقط کندل‌های کامل وارد تحلیل می‌شوند.
-    val completedCandles = remember(ayiarCandles) {
-        val now = System.currentTimeMillis()
-        ayiarCandles?.candles.orEmpty()
-            .filter { it.closeTime <= now }
-            .sortedBy { it.openTime }
-    }
+    val completedCandles = remember(selectedAyiarSeries) {
+    val now = System.currentTimeMillis()
+    selectedAyiarSeries?.candles.orEmpty()
+        .filter { it.closeTime <= now }
+        .distinctBy { it.openTime }
+        .sortedBy { it.openTime }
+}
 
     // محاسبه سیگنال با حداقل کندل و EMA متناسب با تایم‌فریم
     val tradingSignal = remember(
