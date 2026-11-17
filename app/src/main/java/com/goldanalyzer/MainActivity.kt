@@ -20,9 +20,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.text.SimpleDateFormat
+import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.ZoneId
+import java.time.ZonedDateTime
 import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
@@ -66,7 +71,15 @@ fun GoldAnalyzerApp() {
         mutableStateOf(false)
     }
 
+    var refreshingAll by remember {
+        mutableStateOf(false)
+    }
+
     var errorMessage by remember {
+        mutableStateOf<String?>(null)
+    }
+
+    var refreshStatus by remember {
         mutableStateOf<String?>(null)
     }
 
@@ -77,6 +90,12 @@ fun GoldAnalyzerApp() {
     val ayiarRepository = remember {
         AyiarRepository()
     }
+
+    val refreshMutex = remember {
+        Mutex()
+    }
+
+    val scope = rememberCoroutineScope()
 
     val markets = listOf(
         "طلای ۱۸ عیار",
@@ -98,60 +117,64 @@ fun GoldAnalyzerApp() {
         else -> 0
     }
 
+    suspend fun fetchAyiarData(): CandleSeries? {
+        return if (intervalMinutes == 0) {
+            ayiarRepository.getDailyCandles(500)
+        } else {
+            ayiarRepository.getCandles(
+                date = LocalDate.now(ZoneId.of("Asia/Tehran")),
+                intervalMinutes = intervalMinutes
+            )
+        }
+    }
+
     LaunchedEffect(selectedMarket, selectedTimeframe) {
         quote = null
         ayiarCandles = null
         errorMessage = null
+        refreshStatus = null
         loading = false
 
         when (selectedMarket) {
             "انس جهانی طلا" -> {
                 while (true) {
-                    loading = quote == null
-                    errorMessage = null
-
                     try {
-                        quote = goldRepository.getXauUsdSpot()
+                        refreshMutex.withLock {
+                            loading = quote == null
+                            quote = goldRepository.getXauUsdSpot()
+                            loading = false
+                        }
+                        errorMessage = null
                     } catch (e: Exception) {
+                        loading = false
                         errorMessage =
                             e.message ?: "خطا در دریافت قیمت انس"
                     }
 
-                    loading = false
-                    delay(30_000L)
+                    delay(60_000L)
                 }
             }
 
             "صندوق طلای عیار" -> {
                 while (true) {
-                    loading = ayiarCandles == null
-                    errorMessage = null
-
-                    try {
-                        ayiarCandles = if (intervalMinutes == 0) {
-                            ayiarRepository.getDailyCandles(500)
-                        } else {
-                            ayiarRepository.getCandles(
-                                date = LocalDate.now(
-                                    ZoneId.of("Asia/Tehran")
-                                ),
-                                intervalMinutes = intervalMinutes
-                            )
+                    if (isAyiarMarketOpen()) {
+                        try {
+                            refreshMutex.withLock {
+                                loading = ayiarCandles == null
+                                ayiarCandles = fetchAyiarData()
+                                loading = false
+                            }
+                            errorMessage = null
+                        } catch (e: Exception) {
+                            loading = false
+                            errorMessage =
+                                e.message ?: "خطا در دریافت اطلاعات عیار"
                         }
-                    } catch (e: Exception) {
-                        errorMessage =
-                            e.message ?: "خطا در دریافت اطلاعات عیار"
+
+                        delay(10_000L)
+                    } else {
+                        delay(60_000L)
                     }
-
-                    loading = false
-
-                    delay(
-                        if (intervalMinutes == 0) {
-                            300_000L
-                        } else {
-                            30_000L
-                        }
-                    )
                 }
             }
 
@@ -276,8 +299,7 @@ fun GoldAnalyzerApp() {
                         ) {
                             group.forEach { frame ->
                                 FilterChip(
-                                    selected =
-                                        selectedTimeframe == frame,
+                                    selected = selectedTimeframe == frame,
                                     onClick = {
                                         selectedTimeframe = frame
                                     },
@@ -294,6 +316,99 @@ fun GoldAnalyzerApp() {
                             }
                         }
                     }
+                }
+
+                Button(
+                    onClick = {
+                        if (!refreshingAll) {
+                            scope.launch {
+                                refreshingAll = true
+                                refreshStatus = null
+
+                                var spotResult = false
+                                var ayiarResult = false
+                                var spotError: String? = null
+                                var ayiarError: String? = null
+
+                                try {
+                                    refreshMutex.withLock {
+                                        try {
+                                            quote =
+                                                goldRepository.getXauUsdSpot()
+                                            spotResult = true
+                                        } catch (e: Exception) {
+                                            spotError = e.message
+                                        }
+
+                                        try {
+                                            ayiarCandles = fetchAyiarData()
+                                            ayiarResult =
+                                                ayiarCandles != null
+                                        } catch (e: Exception) {
+                                            ayiarError = e.message
+                                        }
+                                    }
+                                } catch (e: Exception) {
+                                    refreshStatus =
+                                        "خطا در به‌روزرسانی اطلاعات"
+                                }
+
+                                val messages = mutableListOf<String>()
+
+                                messages.add(
+                                    if (spotResult)
+                                        "انس: دریافت شد"
+                                    else
+                                        "انس: ${spotError ?: "دریافت نشد"}"
+                                )
+
+                                messages.add(
+                                    if (ayiarResult)
+                                        "عیار: دریافت شد"
+                                    else
+                                        "عیار: ${ayiarError ?: "داده‌ای دریافت نشد"}"
+                                )
+
+                                messages.add(
+                                    "طلای ۱۸ عیار: منبع هنوز متصل نیست"
+                                )
+
+                                refreshStatus = messages.joinToString("\n")
+                                refreshingAll = false
+                            }
+                        }
+                    },
+                    enabled = !refreshingAll,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = DarkGold,
+                        disabledContainerColor = Color(0xFFBDAA7B)
+                    ),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    if (refreshingAll) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            color = Color.White,
+                            strokeWidth = 2.dp
+                        )
+                        Spacer(Modifier.width(10.dp))
+                        Text("در حال به‌روزرسانی همه بازارها...")
+                    } else {
+                        Text(
+                            "↻  به‌روزرسانی همه بازارها",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+
+                if (refreshStatus != null) {
+                    Text(
+                        refreshStatus!!,
+                        color = TextGray,
+                        fontSize = 13.sp
+                    )
                 }
 
                 Card(
@@ -402,72 +517,79 @@ fun GoldAnalyzerApp() {
                                         val candles =
                                             ayiarCandles!!.candles
 
-                                        val latest = candles.last()
+                                        if (candles.isNotEmpty()) {
+                                            val latest = candles.last()
 
-                                        Text(
-                                            if (intervalMinutes == 0)
-                                                "قیمت پایانی آخرین کندل روزانه"
-                                            else
-                                                "قیمت پایانی آخرین کندل",
-                                            color = TextGray
-                                        )
+                                            Text(
+                                                if (intervalMinutes == 0)
+                                                    "قیمت پایانی آخرین کندل روزانه"
+                                                else
+                                                    "قیمت پایانی آخرین کندل",
+                                                color = TextGray
+                                            )
 
-                                        Text(
-                                            String.format(
-                                                Locale.US,
-                                                "%,.0f ریال",
-                                                latest.close
-                                            ),
-                                            color = DarkGold,
-                                            fontSize = 27.sp,
-                                            fontWeight = FontWeight.Bold
-                                        )
-
-                                        HorizontalDivider(
-                                            color = Color(0xFFEAEAEA)
-                                        )
-
-                                        PriceRow("بازشدن", latest.open)
-                                        PriceRow("بالاترین", latest.high)
-                                        PriceRow("پایین‌ترین", latest.low)
-                                        PriceRow("پایانی", latest.close)
-
-                                        Text(
-                                            "حجم معاملات: " +
+                                            Text(
                                                 String.format(
                                                     Locale.US,
-                                                    "%,.0f",
-                                                    latest.volume
+                                                    "%,.0f ریال",
+                                                    latest.close
                                                 ),
-                                            color = TextGray
-                                        )
+                                                color = DarkGold,
+                                                fontSize = 27.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
 
-                                        Text(
-                                            "تعداد کندل‌های دریافتی: ${candles.size}",
-                                            color = TextGray
-                                        )
+                                            HorizontalDivider(
+                                                color = Color(0xFFEAEAEA)
+                                            )
 
-                                        Text(
-                                            "شروع آخرین کندل: " +
-                                                formatTehranTime(
-                                                    latest.openTime
-                                                ),
-                                            color = TextGray
-                                        )
+                                            PriceRow("بازشدن", latest.open)
+                                            PriceRow("بالاترین", latest.high)
+                                            PriceRow("پایین‌ترین", latest.low)
+                                            PriceRow("پایانی", latest.close)
 
-                                        Text(
-                                            "منبع: TSETMC",
-                                            color = TextGray
-                                        )
+                                            Text(
+                                                "حجم معاملات: " +
+                                                    String.format(
+                                                        Locale.US,
+                                                        "%,.0f",
+                                                        latest.volume
+                                                    ),
+                                                color = TextGray
+                                            )
 
-                                        HorizontalDivider(
-                                            color = Color(0xFFEAEAEA)
-                                        )
+                                            Text(
+                                                "تعداد کندل‌های دریافتی: ${candles.size}",
+                                                color = TextGray
+                                            )
 
-                                        CandlestickChart(
-                                            candles = candles,
-                                            modifier = Modifier.fillMaxWidth()
-                                        )
+                                            Text(
+                                                "شروع آخرین کندل: " +
+                                                    formatTehranTime(
+                                                        latest.openTime
+                                                    ),
+                                                color = TextGray
+                                            )
+
+                                            Text(
+                                                "منبع: TSETMC",
+                                                color = TextGray
+                                            )
+
+                                            HorizontalDivider(
+                                                color = Color(0xFFEAEAEA)
+                                            )
+
+                                            CandlestickChart(
+                                                candles = candles,
+                                                modifier = Modifier.fillMaxWidth()
+                                            )
+                                        } else {
+                                            Text(
+                                                "در حال حاضر کندلی برای نمایش دریافت نشد.",
+                                                color = TextGray
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -514,6 +636,21 @@ fun GoldAnalyzerApp() {
             }
         }
     }
+}
+
+private fun isAyiarMarketOpen(): Boolean {
+    val tehranNow = ZonedDateTime.now(
+        ZoneId.of("Asia/Tehran")
+    )
+
+    val day = tehranNow.dayOfWeek
+    val hour = tehranNow.hour
+
+    val isTradingDay =
+        day != DayOfWeek.THURSDAY &&
+        day != DayOfWeek.FRIDAY
+
+    return isTradingDay && hour >= 12 && hour < 18
 }
 
 @Composable
