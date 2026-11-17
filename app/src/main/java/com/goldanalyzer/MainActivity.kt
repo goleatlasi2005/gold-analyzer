@@ -1,3 +1,4 @@
+
 package com.goldanalyzer
 
 import android.os.Bundle
@@ -107,6 +108,14 @@ fun GoldAnalyzerApp() {
         "۴ ساعت" -> 240
         else -> 0
     }
+
+    // تنظیم حداقل کندل و میانگین بلندمدت متناسب با تایم‌فریم
+    val isHourlyTimeframe =
+        selectedTimeframe == "۱ ساعت" ||
+        selectedTimeframe == "۴ ساعت"
+
+    val requiredCandles = if (isHourlyTimeframe) 130 else 200
+    val longEmaPeriod = if (isHourlyTimeframe) 100 else 200
 
     suspend fun loadAyiarPrice() {
         ayiarQuote = ayiarRepository.getQuote()
@@ -267,7 +276,7 @@ fun GoldAnalyzerApp() {
         calculatePercentChange(it.currentPrice, it.previousClose)
     }
 
-    // فقط کندل‌هایی که زمان بسته‌شدنشان گذشته است وارد تحلیل می‌شوند.
+    // فقط کندل‌های کامل وارد تحلیل می‌شوند.
     val completedCandles = remember(ayiarCandles) {
         val now = System.currentTimeMillis()
         ayiarCandles?.candles.orEmpty()
@@ -275,16 +284,32 @@ fun GoldAnalyzerApp() {
             .sortedBy { it.openTime }
     }
 
-    // محاسبه سیگنال فقط برای بازاری که داده معتبر آن متصل شده است.
+    // محاسبه سیگنال با حداقل کندل و EMA متناسب با تایم‌فریم
     val tradingSignal = remember(
         ayiarCandles,
         selectedMarket,
         selectedTimeframe
     ) {
         if (selectedMarket == "صندوق طلای عیار") {
-            SignalEngine.analyze(completedCandles)
+            SignalEngine.analyze(
+                candles = completedCandles,
+                minimumCandles = requiredCandles,
+                longEmaPeriod = longEmaPeriod
+            )
         } else {
             null
+        }
+    }
+
+    // محاسبه حمایت و مقاومت استاتیک و داینامیک
+    val supportResistanceLevels = remember(
+        ayiarCandles,
+        selectedMarket
+    ) {
+        if (selectedMarket == "صندوق طلای عیار") {
+            SupportResistanceEngine.analyze(completedCandles)
+        } else {
+            emptyList()
         }
     }
 
@@ -650,9 +675,9 @@ fun GoldAnalyzerApp() {
                                     Text("در حال دریافت کندل‌ها برای تحلیل...")
                                 }
 
-                                completedCandles.size < 200 -> {
+                                completedCandles.size < requiredCandles -> {
                                     Text(
-                                        "برای محاسبه سیگنال معتبر حداقل ۲۰۰ کندل کامل لازم است.",
+                                        "برای محاسبه سیگنال در این تایم‌فریم حداقل $requiredCandles کندل کامل لازم است.",
                                         color = TextGray
                                     )
                                     Text(
@@ -705,6 +730,16 @@ fun GoldAnalyzerApp() {
                             color = TextGray
                         )
 
+                        Text(
+                            "حداقل کندل موردنیاز: $requiredCandles",
+                            color = TextGray
+                        )
+
+                        Text(
+                            "میانگین بلندمدت: EMA$longEmaPeriod",
+                            color = TextGray
+                        )
+
                         if (tradingSignal != null) {
                             Text(
                                 "جهت روند: ${tradingSignal.trend}",
@@ -720,7 +755,7 @@ fun GoldAnalyzerApp() {
                             }
 
                             Text(
-                                "ATR: ${formatRial(it = tradingSignal.atr)}",
+                                "ATR: ${formatRial(tradingSignal.atr)}",
                                 color = TextDark
                             )
 
@@ -740,7 +775,7 @@ fun GoldAnalyzerApp() {
                             }
                         } else {
                             Text(
-                                "پس از دریافت حداقل ۲۰۰ کندل کامل، تحلیل اندیکاتورها نمایش داده می‌شود.",
+                                "پس از دریافت حداقل $requiredCandles کندل کامل، تحلیل اندیکاتورها نمایش داده می‌شود.",
                                 color = TextGray
                             )
                         }
@@ -752,6 +787,93 @@ fun GoldAnalyzerApp() {
                     }
                 }
 
+                // کشوی مستقل حمایت و مقاومت
+                ExpandableSection("حمایت و مقاومت") {
+                    if (selectedMarket != "صندوق طلای عیار") {
+                        Text(
+                            "این بخش فعلاً برای صندوق طلای عیار فعال است.",
+                            color = TextGray
+                        )
+                    } else if (completedCandles.size < 60) {
+                        Text(
+                            "برای محاسبه حمایت و مقاومت حداقل ۶۰ کندل کامل لازم است.",
+                            color = TextGray
+                        )
+                        Text(
+                            "تعداد کندل کامل فعلی: ${completedCandles.size}",
+                            color = DarkGold
+                        )
+                    } else if (supportResistanceLevels.isEmpty()) {
+                        Text(
+                            "در داده‌های فعلی سطح معتبر حمایت یا مقاومت پیدا نشد.",
+                            color = TextGray
+                        )
+                    } else {
+                        Text(
+                            "قیمت مبنا: ${formatRial(completedCandles.last().close)}",
+                            color = TextDark,
+                            fontWeight = FontWeight.Bold
+                        )
+
+                        HorizontalDivider(color = Color(0xFFEAEAEA))
+
+                        Text(
+                            "سطوح استاتیک",
+                            color = DarkGold,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp
+                        )
+
+                        val staticLevels =
+                            supportResistanceLevels.filter {
+                                it.kind == "استاتیک"
+                            }
+
+                        if (staticLevels.isEmpty()) {
+                            Text(
+                                "سطح استاتیک نزدیک و معتبری پیدا نشد.",
+                                color = TextGray
+                            )
+                        } else {
+                            staticLevels.forEach { level ->
+                                SupportResistanceRow(level)
+                            }
+                        }
+
+                        HorizontalDivider(color = Color(0xFFEAEAEA))
+
+                        Text(
+                            "سطوح داینامیک",
+                            color = DarkGold,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp
+                        )
+
+                        val dynamicLevels =
+                            supportResistanceLevels.filter {
+                                it.kind == "داینامیک"
+                            }
+
+                        if (dynamicLevels.isEmpty()) {
+                            Text(
+                                "سطح داینامیک در دسترس نیست.",
+                                color = TextGray
+                            )
+                        } else {
+                            dynamicLevels.forEach { level ->
+                                SupportResistanceRow(level)
+                            }
+                        }
+
+                        Text(
+                            "سطوح استاتیک از سقف‌ها و کف‌های چرخشی قیمت " +
+                                "و سطوح داینامیک از EMA20، EMA50 و کیجون ایچیموکو محاسبه می‌شوند.",
+                            color = TextGray,
+                            fontSize = 11.sp
+                        )
+                    }
+                }
+
                 Text(
                     "هشدار: سیگنال‌ها خروجی محاسبات تکنیکال هستند و احتمال سود یا زیان را تضمین نمی‌کنند. این نسخه هنوز بک‌تست عملکرد ندارد.",
                     color = TextGray,
@@ -759,6 +881,80 @@ fun GoldAnalyzerApp() {
                 )
 
                 Spacer(Modifier.height(12.dp))
+            }
+        }
+    }
+}
+
+@Composable
+private fun SupportResistanceRow(
+    level: SupportResistanceLevel
+) {
+    val isSupport = level.side == LevelSide.SUPPORT
+    val levelColor = if (isSupport) Green else Red
+    val sideText = if (isSupport) "حمایت" else "مقاومت"
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(10.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isSupport)
+                Color(0xFFF1F8F2)
+            else
+                Color(0xFFFFF3F1)
+        )
+    ) {
+        Column(
+            modifier = Modifier.padding(11.dp),
+            verticalArrangement = Arrangement.spacedBy(5.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    sideText,
+                    color = levelColor,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(Modifier.weight(1f))
+                Text(
+                    level.kind,
+                    color = TextGray,
+                    fontSize = 12.sp
+                )
+            }
+
+            Text(
+                formatRial(level.price),
+                color = TextDark,
+                fontWeight = FontWeight.Bold,
+                fontSize = 17.sp
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    "فاصله: ${String.format(Locale.US, "%.2f", level.distancePercent)}٪",
+                    color = TextGray,
+                    fontSize = 12.sp
+                )
+
+                if (level.touches > 0) {
+                    Text(
+                        "تعداد برخورد: ${level.touches}",
+                        color = TextGray,
+                        fontSize = 12.sp
+                    )
+                }
+
+                Text(
+                    "قدرت: ${level.strength}٪",
+                    color = levelColor,
+                    fontSize = 12.sp
+                )
             }
         }
     }
@@ -896,8 +1092,8 @@ private fun TradingSignalContent(
     }
 }
 
-private fun formatRial(it: Double): String {
-    return String.format(Locale.US, "%,.0f ریال", it)
+private fun formatRial(value: Double): String {
+    return String.format(Locale.US, "%,.0f ریال", value)
 }
 
 @Composable
