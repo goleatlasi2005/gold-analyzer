@@ -31,7 +31,9 @@ private val CombinedTehranZone = ZoneId.of("Asia/Tehran")
 fun CombinedSignalsSection(
     repository: AyiarRepository,
     enabled: Boolean,
-    oneWayMarket: Boolean
+    oneWayMarket: Boolean,
+    selectedTimeframe: String,
+    selectedSeries: CandleSeries?
 ) {
     val candlesByTimeframe = remember {
         mutableStateMapOf<String, List<Candle>>()
@@ -39,8 +41,46 @@ fun CombinedSignalsSection(
 
     var expanded by remember { mutableStateOf(false) }
 
-    LaunchedEffect(enabled, repository) {
+    val selectedLabel = when (selectedTimeframe) {
+        "۵ دقیقه" -> "۵ دقیقه"
+        "۱۵ دقیقه" -> "۱۵ دقیقه"
+        "۳۰ دقیقه" -> "۳۰ دقیقه"
+        "۱ ساعت" -> "۱ ساعت"
+        "۴ ساعت" -> "۴ ساعت"
+        "روزانه" -> "روزانه"
+        else -> null
+    }
+
+    val expectedInterval = when (selectedTimeframe) {
+        "۵ دقیقه" -> "5m"
+        "۱۵ دقیقه" -> "15m"
+        "۳۰ دقیقه" -> "30m"
+        "۱ ساعت" -> "60m"
+        "۴ ساعت" -> "240m"
+        "روزانه" -> "1d"
+        else -> null
+    }
+
+    val selectedSeriesIsValid =
+        selectedSeries != null &&
+        selectedSeries.interval == expectedInterval
+
+    LaunchedEffect(
+        enabled,
+        repository,
+        selectedTimeframe,
+        selectedSeries
+    ) {
         if (!enabled) return@LaunchedEffect
+
+        if (
+            selectedSeriesIsValid &&
+            selectedLabel != null &&
+            selectedSeries != null
+        ) {
+            candlesByTimeframe[selectedLabel] =
+                selectedSeries.candles
+        }
 
         coroutineScope {
             val frames = listOf(
@@ -53,7 +93,11 @@ fun CombinedSignalsSection(
 
             frames.forEach { (label, minutes, refreshMillis) ->
                 launch {
-                    // دریافت اولیه حتی در زمان بسته بودن بازار
+                    // تایم‌فریم انتخاب‌شده از همان داده بخش اختصاصی استفاده می‌کند.
+                    if (selectedSeriesIsValid && label == selectedLabel) {
+                        return@launch
+                    }
+
                     while (true) {
                         try {
                             val series = repository.getCandles(
@@ -80,6 +124,13 @@ fun CombinedSignalsSection(
             }
 
             launch {
+                if (
+                    selectedSeriesIsValid &&
+                    selectedLabel == "روزانه"
+                ) {
+                    return@launch
+                }
+
                 while (true) {
                     try {
                         val daily = repository.getDailyCandles(500)
