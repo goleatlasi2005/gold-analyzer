@@ -19,7 +19,7 @@ fun CandlestickChart(
     candles: List<Candle>,
     modifier: Modifier = Modifier
 ) {
-    val visibleCount = 60
+    val visibleCount = 100
     val visibleCandles = candles.takeLast(visibleCount)
 
     if (visibleCandles.isEmpty()) return
@@ -82,6 +82,12 @@ fun CandlestickChart(
                 fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
             )
 
+            Text(
+                "نمایش ${visibleCandles.size} کندل آخر",
+                color = Color(0xFF777777),
+                fontSize = 11.sp
+            )
+
             Row(
                 horizontalArrangement = Arrangement.spacedBy(14.dp)
             ) {
@@ -101,7 +107,7 @@ fun CandlestickChart(
                 val volumeHeight = size.height - volumeTop
 
                 val spacing = chartWidth / visibleCandles.size
-                val bodyWidth = (spacing * 0.62f).coerceAtLeast(2.dp.toPx())
+                val bodyWidth = (spacing * 0.62f).coerceAtLeast(1.dp.toPx())
 
                 fun priceY(price: Double): Float {
                     return chartHeight -
@@ -204,7 +210,7 @@ fun CandlestickChart(
                     val bodyTop = minOf(openY, closeY)
                     val bodyHeight = maxOf(
                         kotlin.math.abs(closeY - openY),
-                        2.dp.toPx()
+                        1.dp.toPx()
                     )
 
                     drawRect(
