@@ -12,6 +12,14 @@ import java.time.LocalTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
+data class AyiarQuote(
+    val currentPrice: Double,
+    val closingPrice: Double,
+    val previousClose: Double,
+    val date: Long,
+    val time: Long
+)
+
 class AyiarRepository(
     private val httpClient: OkHttpClient = OkHttpClient()
 ) {
@@ -24,6 +32,9 @@ class AyiarRepository(
 
         private const val DAILY_URL =
             "https://cdn.tsetmc.com/api/ClosingPrice/GetClosingPriceDailyList"
+
+        private const val QUOTE_URL =
+            "https://cdn.tsetmc.com/api/ClosingPrice/GetClosingPriceInfo"
 
         private const val TARGET_INTRADAY_CANDLES = 300
         private const val MAX_LOOKBACK_DAYS = 450
@@ -39,10 +50,54 @@ class AyiarRepository(
         val volume: Double
     )
 
-    // تاریخچه هر تایم‌فریم در حافظه نگهداری می‌شود.
-    // روز جاری در هر نوبت دریافت، دوباره به‌روزرسانی می‌شود.
     private val intradayCache =
         mutableMapOf<Int, MutableMap<LocalDate, List<Candle>>>()
+
+    // دریافت قیمت مستقل از نمودار و کندل‌ها
+    suspend fun getQuote(): AyiarQuote = withContext(Dispatchers.IO) {
+
+        val url = "$QUOTE_URL/$INSTRUMENT_CODE"
+
+        val request = Request.Builder()
+            .url(url)
+            .header("Accept", "application/json")
+            .header("User-Agent", "Mozilla/5.0")
+            .get()
+            .build()
+
+        httpClient.newCall(request).execute().use { response ->
+
+            if (!response.isSuccessful) {
+                error("خطای دریافت قیمت عیار: ${response.code}")
+            }
+
+            val body = response.body?.string()
+                ?: error("پاسخی برای قیمت عیار دریافت نشد")
+
+            val root = JSONObject(body)
+
+            val info = root.optJSONObject("closingPriceInfo") ?: root
+
+            val lastPrice = info.optDouble("pDrCotVal", 0.0)
+            val closingPrice = info.optDouble("pClosing", 0.0)
+            val previousClose = info.optDouble("priceYesterday", 0.0)
+
+            if (lastPrice <= 0.0 && closingPrice <= 0.0) {
+                error("قیمت معتبر عیار در پاسخ TSETMC وجود ندارد")
+            }
+
+            val date = info.optLong("dEven", 0L)
+            val time = info.optLong("hEven", 0L)
+
+            AyiarQuote(
+                currentPrice = if (lastPrice > 0.0) lastPrice else closingPrice,
+                closingPrice = closingPrice,
+                previousClose = previousClose,
+                date = date,
+                time = time
+            )
+        }
+    }
 
     suspend fun getCandles(
         date: LocalDate = LocalDate.now(TEHRAN_ZONE),
@@ -68,7 +123,6 @@ class AyiarRepository(
 
             val targetDate = date.minusDays(daysBack.toLong())
 
-            // جمعه و شنبه در بازار عیار روز معاملاتی نیستند.
             if (
                 targetDate.dayOfWeek.value == 5 ||
                 targetDate.dayOfWeek.value == 6
@@ -77,7 +131,6 @@ class AyiarRepository(
             }
 
             val dailyCandles = if (daysBack == 0) {
-                // اطلاعات روز جاری باید تازه دریافت شود.
                 val fresh = fetchCandlesForDate(
                     date = targetDate,
                     intervalMinutes = intervalMinutes
