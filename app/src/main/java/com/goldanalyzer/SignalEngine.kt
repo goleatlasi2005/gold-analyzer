@@ -1,4 +1,3 @@
-
 package com.goldanalyzer
 
 import kotlin.math.abs
@@ -16,108 +15,188 @@ data class TradingSignal(
     val stopLoss: Double,
     val takeProfit1: Double,
     val takeProfit2: Double,
-    val reasons: List<String>
+    val reasons: List<String>,
+    val takeProfit3: Double = 0.0,
+    val riskRewardRatio: Double = 0.0,
+    val confidencePercent: Int = 0,
+    val trend: String = "نامشخص",
+    val adx: Double? = null,
+    val atr: Double = 0.0
 )
 
 object SignalEngine {
 
-    fun analyze(candles: List<Candle>): TradingSignal? {
+    fun analyze(
+        candles: List<Candle>,
+        nowMillis: Long = System.currentTimeMillis()
+    ): TradingSignal? {
 
-        if (candles.size < 60) return null
+        val validCandles = candles
+            .filter { it.closeTime <= nowMillis }
+            .filter {
+                it.open > 0.0 &&
+                it.high > 0.0 &&
+                it.low > 0.0 &&
+                it.close > 0.0 &&
+                it.high >= it.low &&
+                it.volume >= 0.0
+            }
+            .distinctBy { it.openTime }
+            .sortedBy { it.openTime }
 
-        val closes = candles.map { it.close }
-        val volumes = candles.map { it.volume }
+        // برای EMA200 و تحلیل قابل اتکا حداقل 200 کندل لازم است.
+        if (validCandles.size < 200) return null
 
-        val rsi = TechnicalIndicators.rsi(closes)
-        val ema20 = TechnicalIndicators.ema(closes, 20)
-        val ema50 = TechnicalIndicators.ema(closes, 50)
-        val macd = TechnicalIndicators.macd(closes)
-        val atr = TechnicalIndicators.atr(candles)
-        val bands = TechnicalIndicators.bollingerBands(closes)
-        val stochastic = TechnicalIndicators.stochastic(candles)
-        val ichimoku = AdvancedIndicators.ichimoku(candles)
-        val fibonacci = AdvancedIndicators.fibonacci(candles)
+        val closes = validCandles.map { it.close }
+        val last = validCandles.lastIndex
+        val current = validCandles[last]
+        val price = current.close
 
-        val last = candles.lastIndex
-        val currentPrice = closes[last]
-        val currentCandle = candles[last]
+        val ema20 = TechnicalIndicators.ema(closes, 20)[last]
+            ?: return null
+        val ema50 = TechnicalIndicators.ema(closes, 50)[last]
+            ?: return null
+        val ema200 = TechnicalIndicators.ema(closes, 200)[last]
+            ?: return null
 
-        val currentRsi = rsi[last] ?: return null
-        val shortEma = ema20[last] ?: return null
-        val longEma = ema50[last] ?: return null
-        val currentMacd = macd[last] ?: return null
-        val currentAtr = atr[last] ?: return null
-        val currentBands = bands[last] ?: return null
+        val rsi = TechnicalIndicators.rsi(closes)[last]
+            ?: return null
+
+        val macd = TechnicalIndicators.macd(closes)[last]
+            ?: return null
+
+        val atr = TechnicalIndicators.atr(validCandles)[last]
+            ?: return null
+
+        val bands = TechnicalIndicators.bollingerBands(closes)[last]
+            ?: return null
+
+        val stochastic = TechnicalIndicators.stochastic(validCandles)
         val currentStochastic = stochastic[last] ?: return null
         val previousStochastic = stochastic[last - 1]
-        val currentIchimoku = ichimoku[last]
 
-        if (currentAtr <= 0.0) return null
+        val ichimoku = AdvancedIndicators.ichimoku(validCandles)[last]
+        val fibonacci = AdvancedIndicators.fibonacci(validCandles)
+
+        if (
+            price <= 0.0 ||
+            atr <= 0.0 ||
+            !atr.isFinite()
+        ) {
+            return null
+        }
+
+        val adx = calculateAdx(validCandles)
+        val structure = detectMarketStructure(validCandles)
 
         var score = 0
         val reasons = mutableListOf<String>()
 
-        // RSI: maximum 10 points
+        // RSI
         when {
-            currentRsi in 50.0..70.0 -> {
-                score += 10
+            rsi >= 55.0 && rsi < 70.0 -> {
+                score += 8
                 reasons.add("RSI مومنتوم صعودی را تأیید می‌کند")
             }
-            currentRsi in 30.0..50.0 -> {
-                score -= 10
+
+            rsi > 30.0 && rsi <= 45.0 -> {
+                score -= 8
                 reasons.add("RSI مومنتوم نزولی را تأیید می‌کند")
+            }
+
+            rsi >= 70.0 -> {
+                score -= 4
+                reasons.add("RSI وارد محدوده اشباع خرید شده است")
+            }
+
+            rsi <= 30.0 -> {
+                score += 4
+                reasons.add("RSI وارد محدوده اشباع فروش شده است")
             }
         }
 
-        // EMA trend: maximum 12 points
-        if (shortEma > longEma) {
-            score += 12
-            reasons.add("روند EMA20 بالاتر از EMA50 است")
-        } else {
-            score -= 12
-            reasons.add("روند EMA20 پایین‌تر از EMA50 است")
+        // EMA 20 / 50 / 200
+        when {
+            ema20 > ema50 && ema50 > ema200 -> {
+                score += 15
+                reasons.add("چیدمان EMA20، EMA50 و EMA200 صعودی است")
+            }
+
+            ema20 < ema50 && ema50 < ema200 -> {
+                score -= 15
+                reasons.add("چیدمان EMA20، EMA50 و EMA200 نزولی است")
+            }
+
+            ema20 > ema50 -> {
+                score += 6
+                reasons.add("EMA20 بالاتر از EMA50 است")
+            }
+
+            ema20 < ema50 -> {
+                score -= 6
+                reasons.add("EMA20 پایین‌تر از EMA50 است")
+            }
         }
 
-        // Price versus EMA20: maximum 8 points
-        if (currentPrice > shortEma) {
-            score += 8
+        if (price > ema20) {
+            score += 6
             reasons.add("قیمت بالاتر از EMA20 قرار دارد")
-        } else {
-            score -= 8
+        } else if (price < ema20) {
+            score -= 6
             reasons.add("قیمت پایین‌تر از EMA20 قرار دارد")
         }
 
-        // MACD: maximum 12 points
-        if (currentMacd.macd > currentMacd.signal) {
-            score += 12
-            reasons.add("MACD سیگنال صعودی دارد")
-        } else {
-            score -= 12
-            reasons.add("MACD سیگنال نزولی دارد")
+        // MACD
+        if (macd.macd > macd.signal) {
+            score += 10
+            reasons.add("MACD وضعیت صعودی دارد")
+        } else if (macd.macd < macd.signal) {
+            score -= 10
+            reasons.add("MACD وضعیت نزولی دارد")
         }
 
-        // MACD histogram: maximum 6 points
-        if (currentMacd.histogram > 0) {
-            score += 6
+        if (macd.histogram > 0.0) {
+            score += 4
             reasons.add("هیستوگرام MACD مثبت است")
-        } else {
-            score -= 6
+        } else if (macd.histogram < 0.0) {
+            score -= 4
             reasons.add("هیستوگرام MACD منفی است")
         }
 
-        // Ichimoku: maximum 14 points
-        val tenkan = currentIchimoku.tenkan
-        val kijun = currentIchimoku.kijun
-        val senkouA = currentIchimoku.senkouA
-        val senkouB = currentIchimoku.senkouB
+        // ADX
+        if (adx != null) {
+            if (adx >= 25.0) {
+                when {
+                    ema20 > ema50 -> {
+                        score += 8
+                        reasons.add("ADX قدرت روند صعودی را تأیید می‌کند")
+                    }
+
+                    ema20 < ema50 -> {
+                        score -= 8
+                        reasons.add("ADX قدرت روند نزولی را تأیید می‌کند")
+                    }
+                }
+            } else if (adx < 15.0) {
+                reasons.add("قدرت روند پایین است و بازار حالت خنثی دارد")
+            } else {
+                reasons.add("قدرت روند متوسط است")
+            }
+        }
+
+        // Ichimoku
+        val tenkan = ichimoku.tenkan
+        val kijun = ichimoku.kijun
+        val senkouA = ichimoku.senkouA
+        val senkouB = ichimoku.senkouB
 
         if (tenkan != null && kijun != null) {
             if (tenkan > kijun) {
-                score += 7
-                reasons.add("خط تنکان بالاتر از کیجون است")
+                score += 6
+                reasons.add("تنکان بالاتر از کیجون است")
             } else if (tenkan < kijun) {
-                score -= 7
-                reasons.add("خط تنکان پایین‌تر از کیجون است")
+                score -= 6
+                reasons.add("تنکان پایین‌تر از کیجون است")
             }
         }
 
@@ -126,98 +205,127 @@ object SignalEngine {
             val cloudBottom = minOf(senkouA, senkouB)
 
             when {
-                currentPrice > cloudTop -> {
-                    score += 7
+                price > cloudTop -> {
+                    score += 6
                     reasons.add("قیمت بالاتر از ابر ایچیموکو است")
                 }
-                currentPrice < cloudBottom -> {
-                    score -= 7
+
+                price < cloudBottom -> {
+                    score -= 6
                     reasons.add("قیمت پایین‌تر از ابر ایچیموکو است")
                 }
             }
         }
 
-        // Bollinger Bands: maximum 8 points
+        // Bollinger Bands
         when {
-            currentPrice > currentBands.upper -> {
-                score += 8
-                reasons.add("قیمت از باند بالایی بولینگر عبور کرده است")
+            price > bands.upper -> {
+                score += 3
+                reasons.add("قیمت بالاتر از باند بالایی بولینگر است")
             }
-            currentPrice < currentBands.lower -> {
-                score -= 8
-                reasons.add("قیمت از باند پایینی بولینگر عبور کرده است")
+
+            price < bands.lower -> {
+                score -= 3
+                reasons.add("قیمت پایین‌تر از باند پایینی بولینگر است")
             }
-            currentPrice > currentBands.middle -> {
-                score += 4
+
+            price > bands.middle -> {
+                score += 3
                 reasons.add("قیمت بالاتر از میانگین بولینگر است")
             }
-            currentPrice < currentBands.middle -> {
-                score -= 4
+
+            price < bands.middle -> {
+                score -= 3
                 reasons.add("قیمت پایین‌تر از میانگین بولینگر است")
             }
         }
 
-        // Stochastic: maximum 8 points
+        // Stochastic
         if (previousStochastic != null) {
             when {
                 previousStochastic < 20.0 &&
                     currentStochastic >= 20.0 -> {
-                    score += 8
-                    reasons.add("استوکاستیک از ناحیه اشباع فروش خارج شده است")
+                    score += 6
+                    reasons.add("استوکاستیک از اشباع فروش خارج شده است")
                 }
 
                 previousStochastic > 80.0 &&
                     currentStochastic <= 80.0 -> {
-                    score -= 8
-                    reasons.add("استوکاستیک از ناحیه اشباع خرید خارج شده است")
-                }
-            }
-        }
-
-        // Fibonacci: maximum 6 points
-        if (fibonacci != null) {
-            val nearestLevel = fibonacci.levels.values.minByOrNull {
-                abs(currentPrice - it)
-            }
-
-            val tolerance = maxOf(
-                currentAtr * 0.35,
-                currentPrice * 0.0025
-            )
-
-            if (nearestLevel != null &&
-                abs(currentPrice - nearestLevel) <= tolerance
-            ) {
-                if (currentPrice > nearestLevel) {
-                    score += 6
-                    reasons.add("قیمت نزدیک سطح حمایتی فیبوناچی است")
-                } else if (currentPrice < nearestLevel) {
                     score -= 6
-                    reasons.add("قیمت نزدیک سطح مقاومتی فیبوناچی است")
+                    reasons.add("استوکاستیک از اشباع خرید خارج شده است")
                 }
             }
         }
 
-        // Volume confirmation: maximum 6 points
-        val previousVolumes = volumes.dropLast(1).takeLast(20)
+        // Fibonacci
+        if (fibonacci != null) {
+            val nearest = fibonacci.levels.values.minByOrNull {
+                abs(price - it)
+            }
+
+            if (nearest != null) {
+                val tolerance = maxOf(
+                    atr * 0.35,
+                    price * 0.002
+                )
+
+                if (abs(price - nearest) <= tolerance) {
+                    if (price >= nearest) {
+                        score += 5
+                        reasons.add("قیمت به سطح حمایتی فیبوناچی نزدیک است")
+                    } else {
+                        score -= 5
+                        reasons.add("قیمت به سطح مقاومتی فیبوناچی نزدیک است")
+                    }
+                }
+            }
+        }
+
+        // Volume confirmation
+        val previousVolumes = validCandles
+            .dropLast(1)
+            .takeLast(20)
+            .map { it.volume }
 
         if (previousVolumes.size == 20) {
             val averageVolume = previousVolumes.average()
 
-            if (averageVolume > 0.0 &&
-                currentCandle.volume > averageVolume * 1.2
+            if (
+                averageVolume > 0.0 &&
+                current.volume > averageVolume * 1.2
             ) {
-                if (currentCandle.close > currentCandle.open) {
-                    score += 6
-                    reasons.add("حجم بالاتر از میانگین و کندل صعودی است")
-                } else if (currentCandle.close < currentCandle.open) {
-                    score -= 6
-                    reasons.add("حجم بالاتر از میانگین و کندل نزولی است")
+                when {
+                    current.close > current.open -> {
+                        score += 6
+                        reasons.add("حجم معاملات و کندل صعودی تأییدکننده‌اند")
+                    }
+
+                    current.close < current.open -> {
+                        score -= 6
+                        reasons.add("حجم معاملات و کندل نزولی تأییدکننده‌اند")
+                    }
                 }
             }
         }
 
-        score = score.coerceIn(-90, 90)
+        // Market structure: HH/HL or LH/LL
+        when (structure) {
+            "HH/HL" -> {
+                score += 10
+                reasons.add("ساختار بازار صعودی است: سقف و کف بالاتر")
+            }
+
+            "LH/LL" -> {
+                score -= 10
+                reasons.add("ساختار بازار نزولی است: سقف و کف پایین‌تر")
+            }
+
+            else -> {
+                reasons.add("ساختار بازار هنوز جهت مشخصی ندارد")
+            }
+        }
+
+        score = score.coerceIn(-100, 100)
 
         val type = when {
             score >= 40 -> SignalType.BUY
@@ -225,32 +333,151 @@ object SignalEngine {
             else -> SignalType.HOLD
         }
 
+        val trend = when {
+            ema20 > ema50 && ema50 > ema200 && (adx ?: 0.0) >= 20.0 ->
+                "صعودی قوی"
+
+            ema20 < ema50 && ema50 < ema200 && (adx ?: 0.0) >= 20.0 ->
+                "نزولی قوی"
+
+            ema20 > ema50 -> "صعودی"
+
+            ema20 < ema50 -> "نزولی"
+
+            else -> "خنثی"
+        }
+
+        val stopDistance = atr * 1.5
+
         val stopLoss = when (type) {
-            SignalType.BUY -> currentPrice - currentAtr * 1.5
-            SignalType.SELL -> currentPrice + currentAtr * 1.5
-            SignalType.HOLD -> currentPrice - currentAtr * 1.5
+            SignalType.BUY -> price - stopDistance
+            SignalType.SELL -> price + stopDistance
+            SignalType.HOLD -> 0.0
         }
 
         val takeProfit1 = when (type) {
-            SignalType.BUY -> currentPrice + currentAtr * 2.0
-            SignalType.SELL -> currentPrice - currentAtr * 2.0
-            SignalType.HOLD -> currentPrice + currentAtr * 2.0
+            SignalType.BUY -> price + stopDistance
+            SignalType.SELL -> price - stopDistance
+            SignalType.HOLD -> 0.0
         }
 
         val takeProfit2 = when (type) {
-            SignalType.BUY -> currentPrice + currentAtr * 3.0
-            SignalType.SELL -> currentPrice - currentAtr * 3.0
-            SignalType.HOLD -> currentPrice + currentAtr * 3.0
+            SignalType.BUY -> price + stopDistance * 2.0
+            SignalType.SELL -> price - stopDistance * 2.0
+            SignalType.HOLD -> 0.0
+        }
+
+        val takeProfit3 = when (type) {
+            SignalType.BUY -> price + stopDistance * 3.0
+            SignalType.SELL -> price - stopDistance * 3.0
+            SignalType.HOLD -> 0.0
+        }
+
+        if (type == SignalType.HOLD) {
+            reasons.add("قدرت سیگنال برای ورود کافی نیست؛ فعلاً صبر")
         }
 
         return TradingSignal(
             type = type,
             score = score,
-            entryPrice = currentPrice,
+            entryPrice = price,
             stopLoss = stopLoss,
             takeProfit1 = takeProfit1,
             takeProfit2 = takeProfit2,
-            reasons = reasons
+            reasons = reasons,
+            takeProfit3 = takeProfit3,
+            riskRewardRatio = if (type == SignalType.HOLD) 0.0 else 3.0,
+            confidencePercent = abs(score).coerceIn(0, 100),
+            trend = trend,
+            adx = adx,
+            atr = atr
         )
+    }
+
+    private fun calculateAdx(
+        candles: List<Candle>,
+        period: Int = 14
+    ): Double? {
+        if (candles.size < period * 2 + 1) return null
+
+        val dxValues = mutableListOf<Double>()
+
+        for (end in period until candles.size) {
+            var plusDmSum = 0.0
+            var minusDmSum = 0.0
+            var trSum = 0.0
+
+            val start = end - period + 1
+
+            for (i in start..end) {
+                val current = candles[i]
+                val previous = candles[i - 1]
+
+                val upMove = current.high - previous.high
+                val downMove = previous.low - current.low
+
+                val plusDm = if (
+                    upMove > downMove && upMove > 0.0
+                ) upMove else 0.0
+
+                val minusDm = if (
+                    downMove > upMove && downMove > 0.0
+                ) downMove else 0.0
+
+                val trueRange = maxOf(
+                    current.high - current.low,
+                    abs(current.high - previous.close),
+                    abs(current.low - previous.close)
+                )
+
+                plusDmSum += plusDm
+                minusDmSum += minusDm
+                trSum += trueRange
+            }
+
+            if (trSum <= 0.0) continue
+
+            val plusDi = plusDmSum / trSum * 100.0
+            val minusDi = minusDmSum / trSum * 100.0
+            val denominator = plusDi + minusDi
+
+            if (denominator > 0.0) {
+                dxValues.add(
+                    abs(plusDi - minusDi) /
+                        denominator * 100.0
+                )
+            }
+        }
+
+        return dxValues
+            .takeLast(period)
+            .takeIf { it.isNotEmpty() }
+            ?.average()
+    }
+
+    private fun detectMarketStructure(
+        candles: List<Candle>
+    ): String {
+        if (candles.size < 40) return "نامشخص"
+
+        val recent = candles.takeLast(40)
+        val firstHalf = recent.take(20)
+        val secondHalf = recent.takeLast(20)
+
+        val firstHigh = firstHalf.maxOf { it.high }
+        val secondHigh = secondHalf.maxOf { it.high }
+
+        val firstLow = firstHalf.minOf { it.low }
+        val secondLow = secondHalf.minOf { it.low }
+
+        return when {
+            secondHigh > firstHigh && secondLow > firstLow ->
+                "HH/HL"
+
+            secondHigh < firstHigh && secondLow < firstLow ->
+                "LH/LL"
+
+            else -> "خنثی"
+        }
     }
 }
