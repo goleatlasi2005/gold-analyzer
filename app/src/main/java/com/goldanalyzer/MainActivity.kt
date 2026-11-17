@@ -123,30 +123,35 @@ fun GoldAnalyzerApp() {
             }
 
             "صندوق طلای عیار" -> {
-                if (intervalMinutes == 0) {
-                    errorMessage =
-                        "تاریخچه روزانه در مرحله بعد متصل می‌شود."
-                } else {
-                    while (true) {
-                        loading = ayiarCandles == null
-                        errorMessage = null
+                while (true) {
+                    loading = ayiarCandles == null
+                    errorMessage = null
 
-                        try {
-                            ayiarCandles =
-                                ayiarRepository.getCandles(
-                                    date = LocalDate.now(
-                                        ZoneId.of("Asia/Tehran")
-                                    ),
-                                    intervalMinutes = intervalMinutes
-                                )
-                        } catch (e: Exception) {
-                            errorMessage =
-                                e.message ?: "خطا در دریافت معاملات عیار"
+                    try {
+                        ayiarCandles = if (intervalMinutes == 0) {
+                            ayiarRepository.getDailyCandles(500)
+                        } else {
+                            ayiarRepository.getCandles(
+                                date = LocalDate.now(
+                                    ZoneId.of("Asia/Tehran")
+                                ),
+                                intervalMinutes = intervalMinutes
+                            )
                         }
-
-                        loading = false
-                        delay(30_000L)
+                    } catch (e: Exception) {
+                        errorMessage =
+                            e.message ?: "خطا در دریافت اطلاعات عیار"
                     }
+
+                    loading = false
+
+                    delay(
+                        if (intervalMinutes == 0) {
+                            300_000L
+                        } else {
+                            30_000L
+                        }
+                    )
                 }
             }
 
@@ -383,94 +388,77 @@ fun GoldAnalyzerApp() {
                             }
 
                             "صندوق طلای عیار" -> {
-                                if (intervalMinutes == 0) {
-                                    Text(
-                                        "تاریخچه روزانه عیار هنوز متصل نشده است.",
-                                        color = TextGray
-                                    )
-                                } else {
-                                    when {
-                                        loading -> {
-                                            CircularProgressIndicator(
-                                                color = DarkGold
-                                            )
-                                            Text(
-                                                "در حال دریافت معاملات عیار..."
-                                            )
-                                        }
+                                when {
+                                    loading -> {
+                                        CircularProgressIndicator(
+                                            color = DarkGold
+                                        )
+                                        Text(
+                                            "در حال دریافت کندل‌های عیار..."
+                                        )
+                                    }
 
-                                        ayiarCandles != null -> {
-                                            val candles =
-                                                ayiarCandles!!.candles
+                                    ayiarCandles != null -> {
+                                        val candles =
+                                            ayiarCandles!!.candles
 
-                                            val latest =
-                                                candles.last()
+                                        val latest = candles.last()
 
-                                            Text(
+                                        Text(
+                                            if (intervalMinutes == 0)
+                                                "قیمت پایانی آخرین کندل روزانه"
+                                            else
                                                 "قیمت پایانی آخرین کندل",
-                                                color = TextGray
-                                            )
+                                            color = TextGray
+                                        )
 
-                                            Text(
+                                        Text(
+                                            String.format(
+                                                Locale.US,
+                                                "%,.0f ریال",
+                                                latest.close
+                                            ),
+                                            color = DarkGold,
+                                            fontSize = 27.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+
+                                        HorizontalDivider(
+                                            color = Color(0xFFEAEAEA)
+                                        )
+
+                                        PriceRow("بازشدن", latest.open)
+                                        PriceRow("بالاترین", latest.high)
+                                        PriceRow("پایین‌ترین", latest.low)
+                                        PriceRow("پایانی", latest.close)
+
+                                        Text(
+                                            "حجم معاملات: " +
                                                 String.format(
                                                     Locale.US,
-                                                    "%,.0f ریال",
-                                                    latest.close
+                                                    "%,.0f",
+                                                    latest.volume
                                                 ),
-                                                color = DarkGold,
-                                                fontSize = 27.sp,
-                                                fontWeight = FontWeight.Bold
-                                            )
+                                            color = TextGray
+                                        )
 
-                                            HorizontalDivider(
-                                                color = Color(0xFFEAEAEA)
-                                            )
+                                        Text(
+                                            "تعداد کندل‌های دریافتی: ${candles.size}",
+                                            color = TextGray
+                                        )
 
-                                            PriceRow(
-                                                "بازشدن",
-                                                latest.open
-                                            )
-                                            PriceRow(
-                                                "بالاترین",
-                                                latest.high
-                                            )
-                                            PriceRow(
-                                                "پایین‌ترین",
-                                                latest.low
-                                            )
-                                            PriceRow(
-                                                "پایانی",
-                                                latest.close
-                                            )
+                                        Text(
+                                            "شروع آخرین کندل: " +
+                                                formatTehranTime(
+                                                    latest.openTime
+                                                ),
+                                            color = TextGray
+                                        )
 
-                                            Text(
-                                                "حجم معاملات کندل: " +
-                                                    String.format(
-                                                        Locale.US,
-                                                        "%,.0f",
-                                                        latest.volume
-                                                    ),
-                                                color = TextGray
-                                            )
-
-                                            Text(
-                                                "تعداد کندل‌های دریافتی: ${candles.size}",
-                                                color = TextGray
-                                            )
-
-                                            Text(
-                                                "شروع آخرین کندل: " +
-                                                    formatTehranTime(
-                                                        latest.openTime
-                                                    ),
-                                                color = TextGray
-                                            )
-
-                                            Text(
-                                                "منبع: TSETMC",
-                                                color = TextGray
-                                            )
-                                        }
+                                        Text(
+                                            "منبع: TSETMC",
+                                            color = TextGray
+                                        )
                                     }
                                 }
                             }
