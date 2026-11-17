@@ -49,30 +49,41 @@ fun CandlestickChart(
     )
 
     val range = (highest - lowest).takeIf { it > 0.0 } ?: 1.0
+
     val maxVolume = visibleCandles.maxOf { it.volume }
         .takeIf { it > 0.0 } ?: 1.0
 
-    val green = Color(0xFF4ADE80)
-    val red = Color(0xFFF87171)
-    val yellow = Color(0xFFFFD166)
-    val blue = Color(0xFF60A5FA)
-    val purple = Color(0xFFB68CFF)
-    val bandColor = Color(0xFF60A5FA)
+    val green = Color(0xFF16834A)
+    val red = Color(0xFFD94141)
+    val yellow = Color(0xFFD4A52C)
+    val purple = Color(0xFF9270B8)
+    val bandColor = Color(0xFF6096C5)
 
     Card(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(14.dp),
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = Color(0xFF29213D)
+            containerColor = Color.White
+        ),
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            Color(0xFFE9DFCA)
         )
     ) {
         Column(
             modifier = Modifier.padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
 
+            Text(
+                "نمودار کندل‌استیک",
+                color = Color(0xFF292929),
+                fontSize = 16.sp,
+                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+            )
+
             Row(
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                horizontalArrangement = Arrangement.spacedBy(14.dp)
             ) {
                 Text("EMA 20", color = yellow, fontSize = 11.sp)
                 Text("EMA 50", color = purple, fontSize = 11.sp)
@@ -90,7 +101,7 @@ fun CandlestickChart(
                 val volumeHeight = size.height - volumeTop
 
                 val spacing = chartWidth / visibleCandles.size
-                val bodyWidth = spacing * 0.62f
+                val bodyWidth = (spacing * 0.62f).coerceAtLeast(2.dp.toPx())
 
                 fun priceY(price: Double): Float {
                     return chartHeight -
@@ -128,7 +139,7 @@ fun CandlestickChart(
                     val y = chartHeight * i / 4f
 
                     drawLine(
-                        color = Color(0xFF514765),
+                        color = Color(0xFFECECEC),
                         start = androidx.compose.ui.geometry.Offset(0f, y),
                         end = androidx.compose.ui.geometry.Offset(chartWidth, y),
                         strokeWidth = 1.dp.toPx()
@@ -136,7 +147,7 @@ fun CandlestickChart(
                 }
 
                 drawLine(
-                    color = Color.DarkGray,
+                    color = Color(0xFFE0E0E0),
                     start = androidx.compose.ui.geometry.Offset(
                         0f, volumeTop - 5.dp.toPx()
                     ),
@@ -154,7 +165,7 @@ fun CandlestickChart(
 
                 drawIndicatorLine(
                     visibleBands.map { it?.middle },
-                    bandColor.copy(alpha = 0.55f),
+                    bandColor.copy(alpha = 0.5f),
                     1.dp.toPx()
                 )
 
@@ -203,7 +214,8 @@ fun CandlestickChart(
                             bodyTop
                         ),
                         size = androidx.compose.ui.geometry.Size(
-                            bodyWidth, bodyHeight
+                            bodyWidth,
+                            bodyHeight
                         )
                     )
 
@@ -211,13 +223,14 @@ fun CandlestickChart(
                         (candle.volume / maxVolume * volumeHeight).toFloat()
 
                     drawRect(
-                        color = candleColor.copy(alpha = 0.65f),
+                        color = candleColor.copy(alpha = 0.55f),
                         topLeft = androidx.compose.ui.geometry.Offset(
                             centerX - bodyWidth / 2f,
                             size.height - barHeight
                         ),
                         size = androidx.compose.ui.geometry.Size(
-                            bodyWidth, barHeight
+                            bodyWidth,
+                            barHeight
                         )
                     )
                 }
@@ -236,8 +249,14 @@ fun CandlestickChart(
             }
 
             Text(
+                "کندل‌های سبز: صعودی | کندل‌های قرمز: نزولی",
+                color = Color(0xFF555555),
+                fontSize = 11.sp
+            )
+
+            Text(
                 "نمودار حجم معاملات در پایین نمایش داده شده است.",
-                color = Color.LightGray,
+                color = Color(0xFF777777),
                 fontSize = 11.sp
             )
         }
