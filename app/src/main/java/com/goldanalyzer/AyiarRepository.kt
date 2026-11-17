@@ -16,8 +16,10 @@ class AyiarRepository(
 
     companion object {
         const val INSTRUMENT_CODE = "34144395039913458"
+
         private const val BASE_URL =
             "https://cdn.tsetmc.com/api/Trade/GetTradeHistory"
+
         private val TEHRAN_ZONE = ZoneId.of("Asia/Tehran")
     }
 
@@ -57,6 +59,7 @@ class AyiarRepository(
                 ?: error("پاسخی از TSETMC دریافت نشد")
 
             val root = JSONObject(body)
+
             val history = root.optJSONArray("tradeHistory")
                 ?: error("فهرست معاملات در پاسخ وجود ندارد")
 
@@ -67,6 +70,7 @@ class AyiarRepository(
             val trades = mutableListOf<Trade>()
 
             for (i in 0 until history.length()) {
+
                 val item = history.optJSONObject(i) ?: continue
 
                 if (item.optInt("canceled", 0) != 0) {
@@ -85,7 +89,8 @@ class AyiarRepository(
                 val minute = (timeValue / 100) % 100
                 val second = timeValue % 100
 
-                if (hour !in 0..23 ||
+                if (
+                    hour !in 0..23 ||
                     minute !in 0..59 ||
                     second !in 0..59
                 ) {
@@ -123,13 +128,31 @@ class AyiarRepository(
                     .thenBy { it.tradeNumber }
             )
 
+            // تعیین مرز کندل بر اساس ساعت محلی تهران
+            val grouped = sortedTrades.groupBy { trade ->
+
+                val localDateTime = java.time.Instant
+                    .ofEpochMilli(trade.timeMillis)
+                    .atZone(TEHRAN_ZONE)
+                    .toLocalDateTime()
+
+                val minuteOfDay =
+                    localDateTime.hour * 60 +
+                    localDateTime.minute
+
+                val bucketMinute =
+                    (minuteOfDay / intervalMinutes) *
+                    intervalMinutes
+
+                date.atStartOfDay()
+                    .plusMinutes(bucketMinute.toLong())
+                    .atZone(TEHRAN_ZONE)
+                    .toInstant()
+                    .toEpochMilli()
+            }
+
             val intervalMillis =
                 intervalMinutes * 60_000L
-
-            val grouped = sortedTrades.groupBy { trade ->
-                (trade.timeMillis / intervalMillis) *
-                    intervalMillis
-            }
 
             val candles = grouped
                 .toSortedMap()
