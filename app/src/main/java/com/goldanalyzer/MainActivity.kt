@@ -447,7 +447,6 @@ fun GoldAnalyzerApp() {
                             }
                         }
                     },
-                    ,
                     enabled = !refreshing,
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.buttonColors(
@@ -786,8 +785,6 @@ fun GoldAnalyzerApp() {
                             color = TextGray
                         )
                                                     color = TextGray
-                        )
-                    }
                 }
 
                 // کشوی مستقل حمایت و مقاومت
