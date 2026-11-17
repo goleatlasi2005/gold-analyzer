@@ -115,13 +115,7 @@ fun GoldAnalyzerApp() {
 
     val requiredCandles = if (isHourlyTimeframe) 130 else 200
     val longEmaPeriod = if (isHourlyTimeframe) 100 else 200
-val selectedAyiarSeries = if (intervalMinutes == 0) {
-    ayiarDailyCandles?.takeIf { it.interval == "1d" }
-} else {
-    ayiarCandles?.takeIf {
-        it.interval == "${intervalMinutes}m"
-    }
-}
+
     suspend fun loadAyiarPrice() {
         ayiarQuote = ayiarRepository.getQuote()
     }
@@ -282,17 +276,16 @@ val selectedAyiarSeries = if (intervalMinutes == 0) {
     }
 
     // فقط کندل‌های کامل وارد تحلیل می‌شوند.
-    val completedCandles = remember(selectedAyiarSeries) {
-    val now = System.currentTimeMillis()
-    selectedAyiarSeries?.candles.orEmpty()
-        .filter { it.closeTime <= now }
-        .distinctBy { it.openTime }
-        .sortedBy { it.openTime }
-}
+    val completedCandles = remember(ayiarCandles) {
+        val now = System.currentTimeMillis()
+        ayiarCandles?.candles.orEmpty()
+            .filter { it.closeTime <= now }
+            .sortedBy { it.openTime }
+    }
 
     // محاسبه سیگنال با حداقل کندل و EMA متناسب با تایم‌فریم
     val tradingSignal = remember(
-        selectedAyiarSeries,
+        ayiarCandles,
         selectedMarket,
         selectedTimeframe
     ) {
@@ -309,7 +302,7 @@ val selectedAyiarSeries = if (intervalMinutes == 0) {
 
     // محاسبه حمایت و مقاومت استاتیک و داینامیک
     val supportResistanceLevels = remember(
-        selectedAyiarSeries,
+        ayiarCandles,
         selectedMarket
     ) {
         if (selectedMarket == "صندوق طلای عیار") {
@@ -626,7 +619,7 @@ val selectedAyiarSeries = if (intervalMinutes == 0) {
                 ExpandableSection("نمودار قیمت") {
                     when (selectedMarket) {
                         "صندوق طلای عیار" -> {
-                            val candles = selectedAyiarSeries?.candles.orEmpty()
+                            val candles = ayiarCandles?.candles.orEmpty()
 
                             if (candles.isNotEmpty()) {
                                 Text(
@@ -723,13 +716,7 @@ val selectedAyiarSeries = if (intervalMinutes == 0) {
                         }
                     }
                 }
-CombinedSignalsSection(
-    repository = ayiarRepository,
-    enabled = selectedMarket == "صندوق طلای عیار",
-    oneWayMarket = true,
-    selectedTimeframe = selectedTimeframe,
-    selectedSeries = selectedAyiarSeries
-)
+
                 ExpandableSection("تحلیل تکنیکال") {
                     if (selectedMarket == "صندوق طلای عیار") {
                         Text(
@@ -1289,3 +1276,4 @@ private fun formatTehranTime(timestamp: Long): String {
 
     return "$date ${formatter.format(Date(timestamp))}"
 }
+
