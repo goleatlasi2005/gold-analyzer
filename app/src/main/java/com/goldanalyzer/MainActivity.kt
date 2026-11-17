@@ -727,7 +727,7 @@ CombinedSignalsSection(
     enabled = selectedMarket == "صندوق طلای عیار",
     oneWayMarket = true,
     selectedTimeframe = selectedTimeframe,
-    selectedSeries = ayiarCandles
+    selectedSeries = selectedAyiarSeries
 )
                 ExpandableSection("تحلیل تکنیکال") {
                     if (selectedMarket == "صندوق طلای عیار") {
