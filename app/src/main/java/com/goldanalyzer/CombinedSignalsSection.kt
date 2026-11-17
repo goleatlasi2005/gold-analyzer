@@ -53,23 +53,27 @@ fun CombinedSignalsSection(
 
             frames.forEach { (label, minutes, refreshMillis) ->
                 launch {
+                    // دریافت اولیه حتی در زمان بسته بودن بازار
                     while (true) {
-                        if (isCombinedAyiarMarketOpen()) {
-                            try {
-                                val series = repository.getCandles(
-                                    date = LocalDate.now(CombinedTehranZone),
-                                    intervalMinutes = minutes
-                                )
-                                if (series.candles.isNotEmpty()) {
-                                    candlesByTimeframe[label] = series.candles
-                                }
-                            } catch (_: Exception) {
-                                // داده قبلی حفظ می‌شود تا دریافت بعدی
-                            }
+                        try {
+                            val series = repository.getCandles(
+                                date = LocalDate.now(CombinedTehranZone),
+                                intervalMinutes = minutes
+                            )
 
+                            if (series.candles.isNotEmpty()) {
+                                candlesByTimeframe[label] = series.candles
+                            }
+                        } catch (_: Exception) {
+                            // داده قبلی حفظ می‌شود
+                        }
+
+                        if (isCombinedAyiarMarketOpen()) {
                             delay(refreshMillis)
                         } else {
-                            delay(60_000L)
+                            while (!isCombinedAyiarMarketOpen()) {
+                                delay(60_000L)
+                            }
                         }
                     }
                 }
@@ -165,7 +169,7 @@ fun CombinedSignalsSection(
                 )
 
                 Text(
-                    "هر سیگنال فقط زمانی صادر می‌شود که داده کافی از هر سه تایم‌فریم مربوطه دریافت شده باشد.",
+                    "سیگنال فقط پس از دریافت داده کافی از هر سه تایم‌فریم صادر می‌شود.",
                     color = CombinedGray,
                     fontSize = 11.sp
                 )
