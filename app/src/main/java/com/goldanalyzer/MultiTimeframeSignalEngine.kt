@@ -30,22 +30,38 @@ object MultiTimeframeSignalEngine {
         TimeframeConfig("روزانه", 200, 200)
     )
 
+    private val mediumTermWeights = mapOf(
+        "۱ ساعت" to 0.20,
+        "۴ ساعت" to 0.30,
+        "روزانه" to 0.50
+    )
+
     fun analyzeShortTerm(
         candlesByTimeframe: Map<String, List<Candle>>
     ): CombinedSignalAnalysis {
-        return analyze(candlesByTimeframe, shortTermConfig, "۵ دقیقه")
+        return analyze(
+            candlesByTimeframe,
+            shortTermConfig,
+            "۵ دقیقه"
+        )
     }
 
     fun analyzeMediumTerm(
         candlesByTimeframe: Map<String, List<Candle>>
     ): CombinedSignalAnalysis {
-        return analyze(candlesByTimeframe, mediumTermConfig, "۱ ساعت")
+        return analyze(
+            candlesByTimeframe,
+            mediumTermConfig,
+            "۱ ساعت",
+            mediumTermWeights
+        )
     }
 
     private fun analyze(
         candlesByTimeframe: Map<String, List<Candle>>,
         configs: List<TimeframeConfig>,
-        referenceTimeframe: String
+        referenceTimeframe: String,
+        weights: Map<String, Double>? = null
     ): CombinedSignalAnalysis {
 
         val now = System.currentTimeMillis()
@@ -81,15 +97,21 @@ object MultiTimeframeSignalEngine {
             )
         }
 
-        val averageScore = signals
-            .map { it.second.score }
-            .average()
+        val combinedScore = if (weights == null) {
+            signals.map { it.second.score }.average()
+        } else {
+            signals.sumOf { (config, signal) ->
+                signal.score * (weights[config.label] ?: 0.0)
+            }
+        }
+
+        val finalScore = combinedScore
             .roundToInt()
             .coerceIn(-100, 100)
 
         val type = when {
-            averageScore >= 40 -> SignalType.BUY
-            averageScore <= -40 -> SignalType.SELL
+            finalScore >= 40 -> SignalType.BUY
+            finalScore <= -40 -> SignalType.SELL
             else -> SignalType.HOLD
         }
 
@@ -127,9 +149,15 @@ object MultiTimeframeSignalEngine {
 
         val reasons = mutableListOf<String>()
 
-        reasons.add(
-            "امتیاز ترکیبی از میانگین امتیاز سه تایم‌فریم محاسبه شده است."
-        )
+        if (weights == null) {
+            reasons.add(
+                "امتیاز ترکیبی از میانگین امتیاز سه تایم‌فریم محاسبه شده است."
+            )
+        } else {
+            reasons.add(
+                "وزن‌دهی میان‌مدت: روزانه ۵۰٪، چهار‌ساعته ۳۰٪ و یک‌ساعته ۲۰٪."
+            )
+        }
 
         signals.forEach { (config, signal) ->
             reasons.add(
@@ -164,14 +192,14 @@ object MultiTimeframeSignalEngine {
 
         val combinedSignal = TradingSignal(
             type = type,
-            score = averageScore,
+            score = finalScore,
             entryPrice = entryPrice,
             stopLoss = stopLoss,
             takeProfit1 = takeProfit1,
             takeProfit2 = takeProfit2,
             takeProfit3 = takeProfit3,
             riskRewardRatio = if (type == SignalType.HOLD) 0.0 else 3.0,
-            confidencePercent = abs(averageScore).coerceIn(0, 100),
+            confidencePercent = abs(finalScore).coerceIn(0, 100),
             reasons = reasons,
             trend = trend,
             adx = signals.mapNotNull { it.second.adx }.average()
