@@ -792,4 +792,3 @@ private fun formatTehranTime(timestamp: Long): String {
 
     return "$date $time"
 }
-
