@@ -1,4 +1,3 @@
-
 package com.goldanalyzer
 
 import android.os.Bundle
@@ -25,6 +24,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.text.SimpleDateFormat
 import java.time.DayOfWeek
+import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.ZonedDateTime
@@ -39,6 +39,8 @@ private val TextDark = Color(0xFF292929)
 private val TextGray = Color(0xFF777777)
 private val Green = Color(0xFF26834A)
 private val Red = Color(0xFFB3261E)
+
+private val TehranZone = ZoneId.of("Asia/Tehran")
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -64,6 +66,10 @@ fun GoldAnalyzerApp() {
     }
 
     var ayiarCandles by remember {
+        mutableStateOf<CandleSeries?>(null)
+    }
+
+    var ayiarDailyCandles by remember {
         mutableStateOf<CandleSeries?>(null)
     }
 
@@ -118,14 +124,45 @@ fun GoldAnalyzerApp() {
     }
 
     suspend fun fetchAyiarData(): CandleSeries? {
+        if (ayiarDailyCandles == null) {
+            ayiarDailyCandles =
+                ayiarRepository.getDailyCandles(500)
+        }
+
         return if (intervalMinutes == 0) {
-            ayiarRepository.getDailyCandles(500)
+            ayiarDailyCandles
         } else {
             ayiarRepository.getCandles(
-                date = LocalDate.now(ZoneId.of("Asia/Tehran")),
+                date = LocalDate.now(TehranZone),
                 intervalMinutes = intervalMinutes
             )
         }
+    }
+
+    fun getAyiarPercentChange(): Double? {
+        val currentSeries = ayiarCandles ?: return null
+        val candles = currentSeries.candles
+        val latest = candles.lastOrNull() ?: return null
+
+        val latestDate = Instant.ofEpochMilli(latest.openTime)
+            .atZone(TehranZone)
+            .toLocalDate()
+
+        val previousClose = ayiarDailyCandles
+            ?.candles
+            ?.filter { candle ->
+                Instant.ofEpochMilli(candle.openTime)
+                    .atZone(TehranZone)
+                    .toLocalDate()
+                    .isBefore(latestDate)
+            }
+            ?.lastOrNull()
+            ?.close
+
+        return calculatePercentChange(
+            latest.close,
+            previousClose
+        )
     }
 
     LaunchedEffect(selectedMarket, selectedTimeframe) {
@@ -477,6 +514,13 @@ fun GoldAnalyzerApp() {
                                             fontWeight = FontWeight.Bold
                                         )
 
+                                        ChangePercentRow(
+                                            calculatePercentChange(
+                                                quote!!.priceUsdPerTroyOunce,
+                                                quote!!.previousDailyCloseUsd
+                                            )
+                                        )
+
                                         Text(
                                             "منبع: ${quote!!.source}",
                                             color = TextGray
@@ -537,6 +581,10 @@ fun GoldAnalyzerApp() {
                                                 color = DarkGold,
                                                 fontSize = 27.sp,
                                                 fontWeight = FontWeight.Bold
+                                            )
+
+                                            ChangePercentRow(
+                                                getAyiarPercentChange()
                                             )
 
                                             HorizontalDivider(
@@ -600,6 +648,7 @@ fun GoldAnalyzerApp() {
                                     color = TextGray,
                                     fontSize = 14.sp
                                 )
+                                ChangePercentRow(null)
                             }
                         }
 
@@ -638,10 +687,41 @@ fun GoldAnalyzerApp() {
     }
 }
 
-private fun isAyiarMarketOpen(): Boolean {
-    val tehranNow = ZonedDateTime.now(
-        ZoneId.of("Asia/Tehran")
+private fun calculatePercentChange(
+    current: Double,
+    previous: Double?
+): Double? {
+    if (previous == null || previous <= 0.0) {
+        return null
+    }
+
+    return ((current - previous) / previous) * 100.0
+}
+
+@Composable
+private fun ChangePercentRow(percent: Double?) {
+    val color = when {
+        percent == null -> TextGray
+        percent > 0.0 -> Green
+        percent < 0.0 -> Red
+        else -> TextGray
+    }
+
+    val text = percent?.let {
+        "تغییر نسبت به روز قبل: " +
+            String.format(Locale.US, "%+.2f%%", it)
+    } ?: "درصد تغییر روزانه در دسترس نیست"
+
+    Text(
+        text = text,
+        color = color,
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 14.sp
     )
+}
+
+private fun isAyiarMarketOpen(): Boolean {
+    val tehranNow = ZonedDateTime.now(TehranZone)
 
     val day = tehranNow.dayOfWeek
     val hour = tehranNow.hour
@@ -712,3 +792,4 @@ private fun formatTehranTime(timestamp: Long): String {
 
     return "$date $time"
 }
+
