@@ -115,7 +115,13 @@ fun GoldAnalyzerApp() {
 
     val requiredCandles = if (isHourlyTimeframe) 130 else 200
     val longEmaPeriod = if (isHourlyTimeframe) 100 else 200
-
+val selectedAyiarSeries = if (intervalMinutes == 0) {
+    ayiarDailyCandles?.takeIf { it.interval == "1d" }
+} else {
+    ayiarCandles?.takeIf {
+        it.interval == "${intervalMinutes}m"
+    }
+}
     suspend fun loadAyiarPrice() {
         ayiarQuote = ayiarRepository.getQuote()
     }
