@@ -549,11 +549,11 @@ private fun formatTehranTime(timestamp: Long): String {
     val timeZone = TimeZone.getTimeZone("Asia/Tehran")
 
     val calendar = Calendar.getInstance(
-        timeZone,
+        android.icu.util.TimeZone.getTimeZone("Asia/Tehran"),
         ULocale("fa_IR@calendar=persian")
     )
 
-    calendar.timeInMillis = timestamp
+    calendar.setTimeInMillis(timestamp)
 
     val year = calendar.get(Calendar.YEAR)
     val month = calendar.get(Calendar.MONTH) + 1
