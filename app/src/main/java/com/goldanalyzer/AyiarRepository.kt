@@ -6,6 +6,7 @@ import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONObject
+import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -86,7 +87,7 @@ class AyiarRepository(
         intervalMinutes: Int = 5,
         historyDays: Int = when (intervalMinutes) {
             60 -> 90
-            240 -> 730
+            240 -> 180
             else -> 30
         }
     ): CandleSeries = withContext(Dispatchers.IO) {
@@ -99,10 +100,25 @@ class AyiarRepository(
             "بازه تاریخچه معتبر نیست"
         }
 
+        // مفید تایم‌فریم ۲۴۰ دقیقه را مستقیم پشتیبانی نمی‌کند.
+        // برای آن، کندل‌های یک‌ساعته دریافت و تجمیع می‌شوند.
+        val requestResolution = if (intervalMinutes == 240) {
+            60
+        } else {
+            intervalMinutes
+        }
+
+        // برای ساخت تعداد کافی کندل ۴ ساعته، ۱۸۰ روز داده یک‌ساعته می‌گیریم.
+        val requestHistoryDays = if (intervalMinutes == 240) {
+            180
+        } else {
+            historyDays
+        }
+
         val url = "$WORKER_URL" +
             "?symbol=IRTKMOFD0001" +
-            "&resolution=$intervalMinutes" +
-            "&days=$historyDays"
+            "&resolution=$requestResolution" +
+            "&days=$requestHistoryDays"
 
         val request = Request.Builder()
             .url(url)
@@ -190,7 +206,7 @@ class AyiarRepository(
                         close = close,
                         volume = volume.coerceAtLeast(0.0),
                         closeTime = openTime +
-                            intervalMinutes * 60_000L - 1L
+                            requestResolution * 60_000L - 1L
                     )
                 )
             }
@@ -198,18 +214,85 @@ class AyiarRepository(
             val sortedCandles = candles
                 .distinctBy { it.openTime }
                 .sortedBy { it.openTime }
+
+            val finalCandles = if (intervalMinutes == 240) {
+                aggregateFourHourCandles(sortedCandles)
+            } else {
+                sortedCandles
+            }
+
+            val limitedCandles = finalCandles
                 .takeLast(TARGET_INTRADAY_CANDLES)
 
-            if (sortedCandles.isEmpty()) {
+            if (limitedCandles.isEmpty()) {
                 error("هیچ کندل معتبری از مفید دریافت نشد")
             }
 
             CandleSeries(
                 symbol = "عیار",
                 interval = "${intervalMinutes}m",
-                candles = sortedCandles
+                candles = limitedCandles
             )
         }
+    }
+
+    private fun aggregateFourHourCandles(
+        hourlyCandles: List<Candle>
+    ): List<Candle> {
+
+        val grouped = hourlyCandles
+            .mapNotNull { candle ->
+
+                val localDateTime = Instant
+                    .ofEpochMilli(candle.openTime)
+                    .atZone(TEHRAN_ZONE)
+
+                val hour = localDateTime.hour
+
+                // ساعات معاملات عیار: ۱۲ تا ۱۸ تهران
+                if (hour !in 12..17) {
+                    return@mapNotNull null
+                }
+
+                val bucketHour = if (hour < 16) 12 else 16
+
+                val key = localDateTime.toLocalDate() to bucketHour
+
+                key to candle
+            }
+            .groupBy(
+                keySelector = { it.first },
+                valueTransform = { it.second }
+            )
+
+        return grouped.mapNotNull { (key, candles) ->
+
+            val ordered = candles.sortedBy { it.openTime }
+
+            if (ordered.isEmpty()) {
+                return@mapNotNull null
+            }
+
+            val first = ordered.first()
+            val last = ordered.last()
+
+            val expectedCount = if (key.second == 12) 4 else 2
+
+            // کندل ناقص یک بازه را وارد تاریخچه نمی‌کنیم.
+            if (ordered.size != expectedCount) {
+                return@mapNotNull null
+            }
+
+            Candle(
+                openTime = first.openTime,
+                open = first.open,
+                high = ordered.maxOf { it.high },
+                low = ordered.minOf { it.low },
+                close = last.close,
+                volume = ordered.sumOf { it.volume },
+                closeTime = last.closeTime
+            )
+        }.sortedBy { it.openTime }
     }
 
     suspend fun getDailyCandles(
