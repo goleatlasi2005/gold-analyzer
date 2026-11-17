@@ -512,7 +512,7 @@ fun GoldAnalyzerApp() {
                                         color = TextGray
                                     )
                                     Text(
-                                        "زمان قیمت: ${formatTehranTime(q.time)}",
+                                        "زمان قیمت: ${formatAyiarDateTime(q.date, q.time)}",
                                         color = TextGray
                                     )
                                 }
@@ -629,11 +629,7 @@ private fun ExpandableSection(
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .then(
-                        Modifier
-                    ),
+                modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
@@ -703,6 +699,49 @@ private fun isAyiarMarketOpen(): Boolean {
         day != DayOfWeek.FRIDAY
 
     return isTradingDay && now.hour >= 12 && now.hour < 18
+}
+
+private fun formatAyiarDateTime(
+    dateValue: Long,
+    timeValue: Long
+): String {
+    val dateText = dateValue.toString().padStart(8, '0')
+
+    val date = LocalDate.of(
+        dateText.substring(0, 4).toInt(),
+        dateText.substring(4, 6).toInt(),
+        dateText.substring(6, 8).toInt()
+    )
+
+    val dateTimestamp = date
+        .atStartOfDay(TehranZone)
+        .toInstant()
+        .toEpochMilli()
+
+    val datePart = formatTehranTime(dateTimestamp)
+        .substringBefore(" ")
+
+    val hour = (timeValue / 10000).toInt()
+    val minute = ((timeValue / 100) % 100).toInt()
+    val second = (timeValue % 100).toInt()
+
+    val timePart = if (
+        hour in 0..23 &&
+        minute in 0..59 &&
+        second in 0..59
+    ) {
+        String.format(
+            Locale.US,
+            "%02d:%02d:%02d",
+            hour,
+            minute,
+            second
+        )
+    } else {
+        "--:--:--"
+    }
+
+    return "$datePart $timePart"
 }
 
 private fun formatTehranTime(timestamp: Long): String {
