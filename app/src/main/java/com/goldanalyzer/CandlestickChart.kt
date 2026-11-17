@@ -2,17 +2,26 @@
 package com.goldanalyzer
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.font.FontWeight
+import java.text.NumberFormat
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import java.util.TimeZone
 
 @Composable
 fun CandlestickChart(
@@ -23,6 +32,13 @@ fun CandlestickChart(
     val visibleCandles = candles.takeLast(visibleCount)
 
     if (visibleCandles.isEmpty()) return
+
+    var selectedIndex by remember(candles) {
+        mutableIntStateOf(visibleCandles.lastIndex)
+    }
+
+    val safeSelectedIndex = selectedIndex.coerceIn(visibleCandles.indices)
+    val selectedCandle = visibleCandles[safeSelectedIndex]
 
     val closes = candles.map { it.close }
 
@@ -59,16 +75,23 @@ fun CandlestickChart(
     val purple = Color(0xFF9270B8)
     val bandColor = Color(0xFF6096C5)
 
+    val numberFormat = remember {
+        NumberFormat.getNumberInstance(Locale("fa", "IR"))
+    }
+
+    val timeFormat = remember {
+        SimpleDateFormat("yyyy/MM/dd  HH:mm", Locale("fa", "IR")).apply {
+            timeZone = TimeZone.getTimeZone("Asia/Tehran")
+        }
+    }
+
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
             containerColor = Color.White
         ),
-        border = androidx.compose.foundation.BorderStroke(
-            1.dp,
-            Color(0xFFE9DFCA)
-        )
+        border = BorderStroke(1.dp, Color(0xFFE9DFCA))
     ) {
         Column(
             modifier = Modifier.padding(12.dp),
@@ -79,11 +102,11 @@ fun CandlestickChart(
                 "نمودار کندل‌استیک",
                 color = Color(0xFF292929),
                 fontSize = 16.sp,
-                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                fontWeight = FontWeight.Bold
             )
 
             Text(
-                "نمایش ${visibleCandles.size} کندل آخر",
+                "نمایش ${numberFormat.format(visibleCandles.size)} کندل آخر",
                 color = Color(0xFF777777),
                 fontSize = 11.sp
             )
@@ -100,6 +123,15 @@ fun CandlestickChart(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(300.dp)
+                    .pointerInput(visibleCandles.size) {
+                        detectTapGestures { offset ->
+                            val index = (
+                                offset.x / size.width * visibleCandles.size
+                            ).toInt().coerceIn(0, visibleCandles.lastIndex)
+
+                            selectedIndex = index
+                        }
+                    }
             ) {
                 val chartWidth = size.width
                 val chartHeight = size.height * 0.73f
@@ -239,6 +271,19 @@ fun CandlestickChart(
                             barHeight
                         )
                     )
+
+                    if (index == safeSelectedIndex) {
+                        drawLine(
+                            color = Color(0xFFD4A52C),
+                            start = androidx.compose.ui.geometry.Offset(
+                                centerX, 0f
+                            ),
+                            end = androidx.compose.ui.geometry.Offset(
+                                centerX, size.height
+                            ),
+                            strokeWidth = 1.5.dp.toPx()
+                        )
+                    }
                 }
 
                 drawIndicatorLine(
@@ -255,6 +300,52 @@ fun CandlestickChart(
             }
 
             Text(
+                "اطلاعات کندل انتخاب‌شده",
+                color = Color(0xFF292929),
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold
+            )
+
+            Text(
+                "زمان: ${
+                    timeFormat.format(Date(selectedCandle.openTime))
+                }",
+                color = Color(0xFF777777),
+                fontSize = 11.sp
+            )
+
+            CandleInfoRow(
+                "قیمت بازشدن",
+                numberFormat.format(selectedCandle.open)
+            )
+
+            CandleInfoRow(
+                "بالاترین قیمت",
+                numberFormat.format(selectedCandle.high)
+            )
+
+            CandleInfoRow(
+                "پایین‌ترین قیمت",
+                numberFormat.format(selectedCandle.low)
+            )
+
+            CandleInfoRow(
+                "قیمت بسته‌شدن",
+                numberFormat.format(selectedCandle.close)
+            )
+
+            CandleInfoRow(
+                "حجم معاملات",
+                numberFormat.format(selectedCandle.volume)
+            )
+
+            Text(
+                "برای مشاهده قیمت هر کندل، آن را لمس کن.",
+                color = Color(0xFF777777),
+                fontSize = 11.sp
+            )
+
+            Text(
                 "کندل‌های سبز: صعودی | کندل‌های قرمز: نزولی",
                 color = Color(0xFF555555),
                 fontSize = 11.sp
@@ -266,5 +357,29 @@ fun CandlestickChart(
                 fontSize = 11.sp
             )
         }
+    }
+}
+
+@Composable
+private fun CandleInfoRow(
+    title: String,
+    value: String
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(
+            title,
+            color = Color(0xFF777777),
+            fontSize = 12.sp
+        )
+
+        Text(
+            value,
+            color = Color(0xFF292929),
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Bold
+        )
     }
 }
