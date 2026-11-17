@@ -459,6 +459,15 @@ fun GoldAnalyzerApp() {
                                             "منبع: TSETMC",
                                             color = TextGray
                                         )
+
+                                        HorizontalDivider(
+                                            color = Color(0xFFEAEAEA)
+                                        )
+
+                                        CandlestickChart(
+                                            candles = candles,
+                                            modifier = Modifier.fillMaxWidth()
+                                        )
                                     }
                                 }
                             }
