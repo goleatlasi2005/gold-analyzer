@@ -2,7 +2,7 @@
 package com.goldanalyzer
 
 import android.os.Bundle
-import android.icu.util.PersianCalendar
+import android.icu.util.Calendar
 import android.icu.util.ULocale
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -548,16 +548,16 @@ private fun PriceRow(
 private fun formatTehranTime(timestamp: Long): String {
     val timeZone = TimeZone.getTimeZone("Asia/Tehran")
 
-    val calendar = PersianCalendar(
+    val calendar = Calendar.getInstance(
         timeZone,
-        ULocale("fa_IR")
+        ULocale("fa_IR@calendar=persian")
     )
 
     calendar.timeInMillis = timestamp
 
-    val year = calendar.get(PersianCalendar.YEAR)
-    val month = calendar.get(PersianCalendar.MONTH) + 1
-    val day = calendar.get(PersianCalendar.DATE)
+    val year = calendar.get(Calendar.YEAR)
+    val month = calendar.get(Calendar.MONTH) + 1
+    val day = calendar.get(Calendar.DATE)
 
     val timeFormatter = SimpleDateFormat(
         "HH:mm:ss",
