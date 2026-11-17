@@ -2,6 +2,8 @@
 package com.goldanalyzer
 
 import android.os.Bundle
+import android.icu.util.PersianCalendar
+import android.icu.util.ULocale
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.BorderStroke
@@ -543,15 +545,36 @@ private fun PriceRow(
     }
 }
 
-private fun formatTehranTime(
-    timestamp: Long
-): String {
-    val formatter = SimpleDateFormat(
-        "yyyy/MM/dd HH:mm:ss",
-        Locale.getDefault()
-    )
-    formatter.timeZone =
-        TimeZone.getTimeZone("Asia/Tehran")
+private fun formatTehranTime(timestamp: Long): String {
+    val timeZone = TimeZone.getTimeZone("Asia/Tehran")
 
-    return formatter.format(Date(timestamp))
+    val calendar = PersianCalendar(
+        timeZone,
+        ULocale("fa_IR")
+    )
+
+    calendar.timeInMillis = timestamp
+
+    val year = calendar.get(PersianCalendar.YEAR)
+    val month = calendar.get(PersianCalendar.MONTH) + 1
+    val day = calendar.get(PersianCalendar.DATE)
+
+    val timeFormatter = SimpleDateFormat(
+        "HH:mm:ss",
+        Locale.US
+    )
+
+    timeFormatter.timeZone = timeZone
+
+    val date = String.format(
+        Locale.US,
+        "%04d/%02d/%02d",
+        year,
+        month,
+        day
+    )
+
+    val time = timeFormatter.format(Date(timestamp))
+
+    return "$date $time"
 }
