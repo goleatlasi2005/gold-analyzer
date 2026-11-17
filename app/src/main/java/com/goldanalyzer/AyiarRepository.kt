@@ -6,6 +6,7 @@ import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONObject
+import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
@@ -39,6 +40,29 @@ class AyiarRepository(
             "تایم‌فریم انتخاب‌شده معتبر نیست"
         }
 
+        // جست‌وجوی آخرین روز معاملاتی تا ۱۴ روز قبل
+        for (daysBack in 0..14) {
+
+            val targetDate = date.minusDays(daysBack.toLong())
+
+            val result = fetchCandlesForDate(
+                date = targetDate,
+                intervalMinutes = intervalMinutes
+            )
+
+            if (result != null) {
+                return@withContext result
+            }
+        }
+
+        error("در ۱۴ روز گذشته معامله‌ای برای صندوق عیار پیدا نشد")
+    }
+
+    private fun fetchCandlesForDate(
+        date: LocalDate,
+        intervalMinutes: Int
+    ): CandleSeries? {
+
         val dateText = date.toString().replace("-", "")
 
         val url = "$BASE_URL/$INSTRUMENT_CODE/$dateText/false"
@@ -49,7 +73,7 @@ class AyiarRepository(
             .get()
             .build()
 
-        httpClient.newCall(request).execute().use { response ->
+        return httpClient.newCall(request).execute().use { response ->
 
             if (!response.isSuccessful) {
                 error("خطای دریافت معاملات عیار: ${response.code}")
@@ -63,8 +87,9 @@ class AyiarRepository(
             val history = root.optJSONArray("tradeHistory")
                 ?: error("فهرست معاملات در پاسخ وجود ندارد")
 
+            // روز بدون معامله؛ برو سراغ روز قبل
             if (history.length() == 0) {
-                error("برای این تاریخ معامله‌ای دریافت نشد")
+                return@use null
             }
 
             val trades = mutableListOf<Trade>()
@@ -120,7 +145,7 @@ class AyiarRepository(
             }
 
             if (trades.isEmpty()) {
-                error("معامله معتبر برای ساخت کندل پیدا نشد")
+                return@use null
             }
 
             val sortedTrades = trades.sortedWith(
@@ -128,10 +153,10 @@ class AyiarRepository(
                     .thenBy { it.tradeNumber }
             )
 
-            // تعیین مرز کندل بر اساس ساعت محلی تهران
+            // ساخت کندل بر اساس ساعت محلی تهران
             val grouped = sortedTrades.groupBy { trade ->
 
-                val localDateTime = java.time.Instant
+                val localDateTime = Instant
                     .ofEpochMilli(trade.timeMillis)
                     .atZone(TEHRAN_ZONE)
                     .toLocalDateTime()
@@ -173,7 +198,7 @@ class AyiarRepository(
                 }
 
             if (candles.isEmpty()) {
-                error("کندلی برای این بازه ساخته نشد")
+                return@use null
             }
 
             CandleSeries(
