@@ -40,7 +40,6 @@ class AyiarRepository(
         private val DATE_FORMAT = DateTimeFormatter.BASIC_ISO_DATE
     }
 
-    // دریافت قیمت لحظه‌ای از TSETMC
     suspend fun getQuote(): AyiarQuote = withContext(Dispatchers.IO) {
 
         val url = "$QUOTE_URL/$INSTRUMENT_CODE"
@@ -82,20 +81,29 @@ class AyiarRepository(
         }
     }
 
-    // دریافت کندل‌های کوتاه‌مدت از بورس‌ویو مفید
+    // دریافت کندل‌های بورس‌ویو مفید با تاریخچه متناسب با تایم‌فریم
     suspend fun getCandles(
         date: LocalDate = LocalDate.now(TEHRAN_ZONE),
-        intervalMinutes: Int = 5
+        intervalMinutes: Int = 5,
+        historyDays: Int = when (intervalMinutes) {
+            60 -> 90
+            240 -> 365
+            else -> 30
+        }
     ): CandleSeries = withContext(Dispatchers.IO) {
 
         require(intervalMinutes in listOf(5, 15, 30, 60, 240)) {
             "تایم‌فریم انتخاب‌شده معتبر نیست"
         }
 
+        require(historyDays in 1..3650) {
+            "بازه تاریخچه معتبر نیست"
+        }
+
         val url = "$WORKER_URL" +
             "?symbol=IRTKMOFD0001" +
             "&resolution=$intervalMinutes" +
-            "&days=30"
+            "&days=$historyDays"
 
         val request = Request.Builder()
             .url(url)
@@ -247,7 +255,7 @@ class AyiarRepository(
 
                 val dateText = dateValue.toString().padStart(8, '0')
 
-                val date = try {
+                val parsedDate = try {
                     LocalDate.parse(dateText, DATE_FORMAT)
                 } catch (_: Exception) {
                     continue
@@ -269,7 +277,7 @@ class AyiarRepository(
                     continue
                 }
 
-                val openTime = date
+                val openTime = parsedDate
                     .atStartOfDay(TEHRAN_ZONE)
                     .toInstant()
                     .toEpochMilli()
