@@ -25,6 +25,9 @@ class AyiarRepository(
         private const val DAILY_URL =
             "https://cdn.tsetmc.com/api/ClosingPrice/GetClosingPriceDailyList"
 
+        private const val TARGET_INTRADAY_CANDLES = 300
+        private const val MAX_LOOKBACK_DAYS = 450
+
         private val TEHRAN_ZONE = ZoneId.of("Asia/Tehran")
         private val DATE_FORMAT = DateTimeFormatter.BASIC_ISO_DATE
     }
@@ -36,6 +39,11 @@ class AyiarRepository(
         val volume: Double
     )
 
+    // تاریخچه هر تایم‌فریم در حافظه نگهداری می‌شود.
+    // روز جاری در هر نوبت دریافت، دوباره به‌روزرسانی می‌شود.
+    private val intradayCache =
+        mutableMapOf<Int, MutableMap<LocalDate, List<Candle>>>()
+
     suspend fun getCandles(
         date: LocalDate = LocalDate.now(TEHRAN_ZONE),
         intervalMinutes: Int = 5
@@ -45,20 +53,81 @@ class AyiarRepository(
             "تایم‌فریم انتخاب‌شده معتبر نیست"
         }
 
-        for (daysBack in 0..14) {
-            val targetDate = date.minusDays(daysBack.toLong())
-
-            val result = fetchCandlesForDate(
-                date = targetDate,
-                intervalMinutes = intervalMinutes
-            )
-
-            if (result != null) {
-                return@withContext result
+        val cache = synchronized(intradayCache) {
+            intradayCache.getOrPut(intervalMinutes) {
+                mutableMapOf()
             }
         }
 
-        error("در ۱۴ روز گذشته معامله‌ای برای صندوق عیار پیدا نشد")
+        val allCandles = mutableListOf<Candle>()
+
+        for (daysBack in 0..MAX_LOOKBACK_DAYS) {
+            if (allCandles.size >= TARGET_INTRADAY_CANDLES) {
+                break
+            }
+
+            val targetDate = date.minusDays(daysBack.toLong())
+
+            // جمعه و شنبه در بازار عیار روز معاملاتی نیستند.
+            if (
+                targetDate.dayOfWeek.value == 5 ||
+                targetDate.dayOfWeek.value == 6
+            ) {
+                continue
+            }
+
+            val dailyCandles = if (daysBack == 0) {
+                // اطلاعات روز جاری باید تازه دریافت شود.
+                val fresh = fetchCandlesForDate(
+                    date = targetDate,
+                    intervalMinutes = intervalMinutes
+                )
+
+                synchronized(cache) {
+                    cache[targetDate] = fresh?.candles ?: emptyList()
+                }
+
+                fresh?.candles ?: emptyList()
+            } else {
+                val cached = synchronized(cache) {
+                    cache[targetDate]
+                }
+
+                if (cached != null) {
+                    cached
+                } else {
+                    val fetched = fetchCandlesForDate(
+                        date = targetDate,
+                        intervalMinutes = intervalMinutes
+                    )
+
+                    val result = fetched?.candles ?: emptyList()
+
+                    synchronized(cache) {
+                        cache[targetDate] = result
+                    }
+
+                    result
+                }
+            }
+
+            allCandles.addAll(dailyCandles)
+        }
+
+        val sortedCandles = allCandles
+            .distinctBy { it.openTime }
+            .sortedBy { it.openTime }
+            .takeLast(TARGET_INTRADAY_CANDLES)
+
+        if (sortedCandles.isEmpty()) {
+            error("هیچ کندل معتبری برای صندوق عیار دریافت نشد")
+        }
+
+        CandleSeries(
+            symbol = "عیار",
+            interval = "${intervalMinutes}m",
+            candles = sortedCandles
+        )
     }
 
     suspend fun getDailyCandles(
@@ -165,6 +234,7 @@ class AyiarRepository(
         val request = Request.Builder()
             .url(url)
             .header("Accept", "application/json")
+            .header("User-Agent", "Mozilla/5.0")
             .get()
             .build()
 
