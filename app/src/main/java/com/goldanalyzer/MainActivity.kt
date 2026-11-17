@@ -626,7 +626,7 @@ val selectedAyiarSeries = if (intervalMinutes == 0) {
                 ExpandableSection("نمودار قیمت") {
                     when (selectedMarket) {
                         "صندوق طلای عیار" -> {
-                            val candles = ayiarCandles?.candles.orEmpty()
+                            val candles = selectedAyiarSeries?.candles.orEmpty()
 
                             if (candles.isNotEmpty()) {
                                 Text(
