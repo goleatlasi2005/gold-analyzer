@@ -716,7 +716,11 @@ fun GoldAnalyzerApp() {
                         }
                     }
                 }
-
+CombinedSignalsSection(
+    repository = ayiarRepository,
+    enabled = selectedMarket == "صندوق طلای عیار",
+    oneWayMarket = true
+)
                 ExpandableSection("تحلیل تکنیکال") {
                     if (selectedMarket == "صندوق طلای عیار") {
                         Text(
