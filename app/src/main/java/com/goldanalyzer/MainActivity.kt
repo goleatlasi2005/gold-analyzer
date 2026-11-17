@@ -1,3 +1,4 @@
+
 package com.goldanalyzer
 
 import android.os.Bundle
@@ -39,7 +40,6 @@ private val TextDark = Color(0xFF292929)
 private val TextGray = Color(0xFF777777)
 private val Green = Color(0xFF26834A)
 private val Red = Color(0xFFB3261E)
-
 private val TehranZone = ZoneId.of("Asia/Tehran")
 
 class MainActivity : ComponentActivity() {
@@ -61,8 +61,12 @@ fun GoldAnalyzerApp() {
         mutableStateOf("۱۵ دقیقه")
     }
 
-    var quote by remember {
+    var spotQuote by remember {
         mutableStateOf<GoldSpotQuote?>(null)
+    }
+
+    var ayiarQuote by remember {
+        mutableStateOf<AyiarQuote?>(null)
     }
 
     var ayiarCandles by remember {
@@ -73,34 +77,17 @@ fun GoldAnalyzerApp() {
         mutableStateOf<CandleSeries?>(null)
     }
 
-    var loading by remember {
-        mutableStateOf(false)
-    }
+    var priceLoading by remember { mutableStateOf(false) }
+    var chartLoading by remember { mutableStateOf(false) }
+    var refreshing by remember { mutableStateOf(false) }
 
-    var refreshingAll by remember {
-        mutableStateOf(false)
-    }
+    var priceError by remember { mutableStateOf<String?>(null) }
+    var chartError by remember { mutableStateOf<String?>(null) }
+    var refreshStatus by remember { mutableStateOf<String?>(null) }
 
-    var errorMessage by remember {
-        mutableStateOf<String?>(null)
-    }
-
-    var refreshStatus by remember {
-        mutableStateOf<String?>(null)
-    }
-
-    val goldRepository = remember {
-        GoldSpotRepository()
-    }
-
-    val ayiarRepository = remember {
-        AyiarRepository()
-    }
-
-    val refreshMutex = remember {
-        Mutex()
-    }
-
+    val goldRepository = remember { GoldSpotRepository() }
+    val ayiarRepository = remember { AyiarRepository() }
+    val refreshMutex = remember { Mutex() }
     val scope = rememberCoroutineScope()
 
     val markets = listOf(
@@ -123,71 +110,101 @@ fun GoldAnalyzerApp() {
         else -> 0
     }
 
-    suspend fun fetchAyiarData(): CandleSeries? {
-        if (ayiarDailyCandles == null) {
-            ayiarDailyCandles =
-                ayiarRepository.getDailyCandles(500)
-        }
+    suspend fun loadAyiarPrice() {
+        ayiarQuote = ayiarRepository.getQuote()
+    }
 
-        return if (intervalMinutes == 0) {
-            ayiarDailyCandles
-        } else {
-            ayiarRepository.getCandles(
-                date = LocalDate.now(TehranZone),
-                intervalMinutes = intervalMinutes
-            )
+    suspend fun loadAyiarChart() {
+        chartLoading = true
+        chartError = null
+
+        try {
+            if (intervalMinutes == 0) {
+                if (ayiarDailyCandles == null) {
+                    ayiarDailyCandles =
+                        ayiarRepository.getDailyCandles(500)
+                }
+                ayiarCandles = ayiarDailyCandles
+            } else {
+                ayiarCandles = ayiarRepository.getCandles(
+                    date = LocalDate.now(TehranZone),
+                    intervalMinutes = intervalMinutes
+                )
+            }
+
+            if (ayiarCandles == null ||
+                ayiarCandles?.candles.isNullOrEmpty()
+            ) {
+                chartError = "کندلی برای نمایش دریافت نشد."
+            }
+        } catch (e: Exception) {
+            chartError = e.message ?: "خطا در دریافت نمودار"
+        } finally {
+            chartLoading = false
         }
     }
 
-    fun getAyiarPercentChange(): Double? {
-        val currentSeries = ayiarCandles ?: return null
-        val candles = currentSeries.candles
-        val latest = candles.lastOrNull() ?: return null
+    suspend fun refreshSelectedMarket() {
+        refreshMutex.withLock {
+            priceError = null
+            chartError = null
+            refreshStatus = null
 
-        val latestDate = Instant.ofEpochMilli(latest.openTime)
-            .atZone(TehranZone)
-            .toLocalDate()
+            when (selectedMarket) {
+                "انس جهانی طلا" -> {
+                    priceLoading = true
+                    try {
+                        spotQuote = goldRepository.getXauUsdSpot()
+                    } catch (e: Exception) {
+                        priceError =
+                            e.message ?: "خطا در دریافت قیمت انس"
+                    } finally {
+                        priceLoading = false
+                    }
+                }
 
-        val previousClose = ayiarDailyCandles
-            ?.candles
-            ?.filter { candle ->
-                Instant.ofEpochMilli(candle.openTime)
-                    .atZone(TehranZone)
-                    .toLocalDate()
-                    .isBefore(latestDate)
+                "صندوق طلای عیار" -> {
+                    priceLoading = true
+                    try {
+                        loadAyiarPrice()
+                    } catch (e: Exception) {
+                        priceError =
+                            e.message ?: "خطا در دریافت قیمت عیار"
+                    } finally {
+                        priceLoading = false
+                    }
+
+                    loadAyiarChart()
+                }
+
+                else -> {
+                    priceError =
+                        "منبع قیمت طلای ۱۸ عیار هنوز متصل نشده است."
+                }
             }
-            ?.lastOrNull()
-            ?.close
-
-        return calculatePercentChange(
-            latest.close,
-            previousClose
-        )
+        }
     }
 
     LaunchedEffect(selectedMarket, selectedTimeframe) {
-        quote = null
-        ayiarCandles = null
-        errorMessage = null
+        priceError = null
+        chartError = null
         refreshStatus = null
-        loading = false
 
         when (selectedMarket) {
             "انس جهانی طلا" -> {
                 while (true) {
-                    try {
-                        refreshMutex.withLock {
-                            loading = quote == null
-                            quote = goldRepository.getXauUsdSpot()
-                            loading = false
+                    refreshMutex.withLock {
+                        priceLoading = spotQuote == null
+                        try {
+                            spotQuote = goldRepository.getXauUsdSpot()
+                            priceError = null
+                        } catch (e: Exception) {
+                            priceError =
+                                e.message ?: "خطا در دریافت قیمت انس"
+                        } finally {
+                            priceLoading = false
                         }
-                        errorMessage = null
-                    } catch (e: Exception) {
-                        loading = false
-                        errorMessage =
-                            e.message ?: "خطا در دریافت قیمت انس"
                     }
-
                     delay(60_000L)
                 }
             }
@@ -195,19 +212,20 @@ fun GoldAnalyzerApp() {
             "صندوق طلای عیار" -> {
                 while (true) {
                     if (isAyiarMarketOpen()) {
-                        try {
-                            refreshMutex.withLock {
-                                loading = ayiarCandles == null
-                                ayiarCandles = fetchAyiarData()
-                                loading = false
+                        refreshMutex.withLock {
+                            priceLoading = ayiarQuote == null
+                            try {
+                                loadAyiarPrice()
+                                priceError = null
+                            } catch (e: Exception) {
+                                priceError =
+                                    e.message ?: "خطا در دریافت قیمت عیار"
+                            } finally {
+                                priceLoading = false
                             }
-                            errorMessage = null
-                        } catch (e: Exception) {
-                            loading = false
-                            errorMessage =
-                                e.message ?: "خطا در دریافت اطلاعات عیار"
-                        }
 
+                            loadAyiarChart()
+                        }
                         delay(10_000L)
                     } else {
                         delay(60_000L)
@@ -216,10 +234,14 @@ fun GoldAnalyzerApp() {
             }
 
             else -> {
-                errorMessage =
+                priceError =
                     "منبع قیمت این بازار هنوز متصل نشده است."
             }
         }
+    }
+
+    val ayiarPercent = ayiarQuote?.let {
+        calculatePercentChange(it.currentPrice, it.previousClose)
     }
 
     MaterialTheme {
@@ -232,11 +254,9 @@ fun GoldAnalyzerApp() {
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
                     .padding(18.dp),
-                verticalArrangement = Arrangement.spacedBy(18.dp)
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
                     Surface(
                         shape = RoundedCornerShape(50),
                         color = Gold,
@@ -275,9 +295,7 @@ fun GoldAnalyzerApp() {
 
                 markets.forEach { market ->
                     Card(
-                        onClick = {
-                            selectedMarket = market
-                        },
+                        onClick = { selectedMarket = market },
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(14.dp),
                         colors = CardDefaults.cardColors(
@@ -293,24 +311,20 @@ fun GoldAnalyzerApp() {
                         )
                     ) {
                         Row(
-                            modifier = Modifier.padding(17.dp),
+                            modifier = Modifier.padding(15.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text("🪙", fontSize = 25.sp)
                             Spacer(Modifier.width(12.dp))
-
                             Text(
                                 market,
                                 color = TextDark,
                                 fontWeight = FontWeight.Bold,
                                 modifier = Modifier.weight(1f)
                             )
-
                             RadioButton(
                                 selected = selectedMarket == market,
-                                onClick = {
-                                    selectedMarket = market
-                                },
+                                onClick = { selectedMarket = market },
                                 colors = RadioButtonDefaults.colors(
                                     selectedColor = DarkGold
                                 )
@@ -326,29 +340,21 @@ fun GoldAnalyzerApp() {
                     fontWeight = FontWeight.Bold
                 )
 
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     timeframes.chunked(3).forEach { group ->
                         Row(
-                            horizontalArrangement =
-                                Arrangement.spacedBy(7.dp)
+                            horizontalArrangement = Arrangement.spacedBy(7.dp)
                         ) {
                             group.forEach { frame ->
                                 FilterChip(
                                     selected = selectedTimeframe == frame,
-                                    onClick = {
-                                        selectedTimeframe = frame
-                                    },
-                                    label = {
-                                        Text(frame)
-                                    },
-                                    colors =
-                                        FilterChipDefaults.filterChipColors(
-                                            selectedContainerColor =
-                                                Color(0xFFFFE8A8),
-                                            selectedLabelColor = DarkGold
-                                        )
+                                    onClick = { selectedTimeframe = frame },
+                                    label = { Text(frame) },
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor =
+                                            Color(0xFFFFE8A8),
+                                        selectedLabelColor = DarkGold
+                                    )
                                 )
                             }
                         }
@@ -357,83 +363,35 @@ fun GoldAnalyzerApp() {
 
                 Button(
                     onClick = {
-                        if (!refreshingAll) {
+                        if (!refreshing) {
                             scope.launch {
-                                refreshingAll = true
+                                refreshing = true
                                 refreshStatus = null
-
-                                var spotResult = false
-                                var ayiarResult = false
-                                var spotError: String? = null
-                                var ayiarError: String? = null
-
-                                try {
-                                    refreshMutex.withLock {
-                                        try {
-                                            quote =
-                                                goldRepository.getXauUsdSpot()
-                                            spotResult = true
-                                        } catch (e: Exception) {
-                                            spotError = e.message
-                                        }
-
-                                        try {
-                                            ayiarCandles = fetchAyiarData()
-                                            ayiarResult =
-                                                ayiarCandles != null
-                                        } catch (e: Exception) {
-                                            ayiarError = e.message
-                                        }
-                                    }
-                                } catch (e: Exception) {
-                                    refreshStatus =
-                                        "خطا در به‌روزرسانی اطلاعات"
-                                }
-
-                                val messages = mutableListOf<String>()
-
-                                messages.add(
-                                    if (spotResult)
-                                        "انس: دریافت شد"
-                                    else
-                                        "انس: ${spotError ?: "دریافت نشد"}"
-                                )
-
-                                messages.add(
-                                    if (ayiarResult)
-                                        "عیار: دریافت شد"
-                                    else
-                                        "عیار: ${ayiarError ?: "داده‌ای دریافت نشد"}"
-                                )
-
-                                messages.add(
-                                    "طلای ۱۸ عیار: منبع هنوز متصل نیست"
-                                )
-
-                                refreshStatus = messages.joinToString("\n")
-                                refreshingAll = false
+                                refreshSelectedMarket()
+                                refreshStatus =
+                                    "به‌روزرسانی $selectedMarket انجام شد."
+                                refreshing = false
                             }
                         }
                     },
-                    enabled = !refreshingAll,
+                    enabled = !refreshing,
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = DarkGold,
-                        disabledContainerColor = Color(0xFFBDAA7B)
+                        containerColor = DarkGold
                     ),
                     shape = RoundedCornerShape(12.dp)
                 ) {
-                    if (refreshingAll) {
+                    if (refreshing) {
                         CircularProgressIndicator(
                             modifier = Modifier.size(20.dp),
                             color = Color.White,
                             strokeWidth = 2.dp
                         )
                         Spacer(Modifier.width(10.dp))
-                        Text("در حال به‌روزرسانی همه بازارها...")
+                        Text("در حال به‌روزرسانی...")
                     } else {
                         Text(
-                            "↻  به‌روزرسانی همه بازارها",
+                            "↻  به‌روزرسانی $selectedMarket",
                             fontSize = 15.sp,
                             fontWeight = FontWeight.Bold
                         )
@@ -441,11 +399,7 @@ fun GoldAnalyzerApp() {
                 }
 
                 if (refreshStatus != null) {
-                    Text(
-                        refreshStatus!!,
-                        color = TextGray,
-                        fontSize = 13.sp
-                    )
+                    Text(refreshStatus!!, color = Green, fontSize = 13.sp)
                 }
 
                 Card(
@@ -454,18 +408,14 @@ fun GoldAnalyzerApp() {
                     colors = CardDefaults.cardColors(
                         containerColor = Color.White
                     ),
-                    border = BorderStroke(
-                        1.dp,
-                        Color(0xFFE9DFCA)
-                    )
+                    border = BorderStroke(1.dp, Color(0xFFE9DFCA))
                 ) {
                     Column(
                         modifier = Modifier.padding(18.dp),
-                        verticalArrangement =
-                            Arrangement.spacedBy(12.dp)
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         Text(
-                            "وضعیت تحلیل",
+                            "قیمت بازار انتخاب‌شده",
                             color = DarkGold,
                             fontSize = 19.sp,
                             fontWeight = FontWeight.Bold
@@ -483,205 +433,233 @@ fun GoldAnalyzerApp() {
                             color = TextGray
                         )
 
-                        HorizontalDivider(
-                            color = Color(0xFFEAEAEA)
-                        )
+                        HorizontalDivider(color = Color(0xFFEAEAEA))
 
                         when (selectedMarket) {
                             "انس جهانی طلا" -> {
-                                when {
-                                    loading -> {
-                                        CircularProgressIndicator(
-                                            color = DarkGold
-                                        )
-                                        Text("در حال دریافت قیمت انس...")
-                                    }
+                                if (priceLoading && spotQuote == null) {
+                                    CircularProgressIndicator(color = DarkGold)
+                                    Text("در حال دریافت قیمت...")
+                                }
 
-                                    quote != null -> {
-                                        Text(
-                                            "قیمت هر اونس به دلار",
-                                            color = TextGray
+                                spotQuote?.let { q ->
+                                    Text(
+                                        "قیمت هر اونس به دلار",
+                                        color = TextGray
+                                    )
+                                    Text(
+                                        String.format(
+                                            Locale.US,
+                                            "%,.2f USD",
+                                            q.priceUsdPerTroyOunce
+                                        ),
+                                        color = DarkGold,
+                                        fontSize = 27.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    ChangePercentRow(
+                                        calculatePercentChange(
+                                            q.priceUsdPerTroyOunce,
+                                            q.previousDailyCloseUsd
                                         )
-
-                                        Text(
-                                            String.format(
-                                                Locale.US,
-                                                "%,.2f USD",
-                                                quote!!.priceUsdPerTroyOunce
-                                            ),
-                                            color = DarkGold,
-                                            fontSize = 27.sp,
-                                            fontWeight = FontWeight.Bold
-                                        )
-
-                                        ChangePercentRow(
-                                            calculatePercentChange(
-                                                quote!!.priceUsdPerTroyOunce,
-                                                quote!!.previousDailyCloseUsd
-                                            )
-                                        )
-
-                                        Text(
-                                            "منبع: ${quote!!.source}",
-                                            color = TextGray
-                                        )
-
-                                        Text(
-                                            "زمان قیمت: " +
-                                                formatTehranTime(
-                                                    quote!!.observedAtMillis
-                                                ),
-                                            color = TextGray
-                                        )
-
-                                        Text(
-                                            if (quote!!.isFresh)
-                                                "داده تازه"
-                                            else
-                                                "هشدار: داده تازه نیست؛ سیگنال صادر نمی‌شود",
-                                            color = if (quote!!.isFresh)
-                                                Green else Red
-                                        )
-                                    }
+                                    )
+                                    Text("منبع: ${q.source}", color = TextGray)
+                                    Text(
+                                        "زمان قیمت: ${formatTehranTime(q.observedAtMillis)}",
+                                        color = TextGray
+                                    )
+                                    Text(
+                                        if (q.isFresh) "داده تازه"
+                                        else "هشدار: داده تازه نیست",
+                                        color = if (q.isFresh) Green else Red
+                                    )
                                 }
                             }
 
                             "صندوق طلای عیار" -> {
-                                when {
-                                    loading -> {
-                                        CircularProgressIndicator(
-                                            color = DarkGold
-                                        )
-                                        Text(
-                                            "در حال دریافت کندل‌های عیار..."
-                                        )
-                                    }
+                                if (priceLoading && ayiarQuote == null) {
+                                    CircularProgressIndicator(color = DarkGold)
+                                    Text("در حال دریافت قیمت...")
+                                }
 
-                                    ayiarCandles != null -> {
-                                        val candles =
-                                            ayiarCandles!!.candles
+                                ayiarQuote?.let { q ->
+                                    Text(
+                                        "قیمت لحظه‌ای هر واحد صندوق",
+                                        color = TextGray
+                                    )
+                                    Text(
+                                        String.format(
+                                            Locale.US,
+                                            "%,.0f ریال",
+                                            q.currentPrice
+                                        ),
+                                        color = DarkGold,
+                                        fontSize = 27.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    ChangePercentRow(ayiarPercent)
+                                    Text(
+                                        "قیمت پایانی: " +
+                                            String.format(
+                                                Locale.US,
+                                                "%,.0f ریال",
+                                                q.closingPrice
+                                            ),
+                                        color = TextGray
+                                    )
+                                    Text(
+                                        "منبع: TSETMC",
+                                        color = TextGray
+                                    )
+                                    Text(
+                                        "زمان قیمت: ${formatTehranTime(q.time)}",
+                                        color = TextGray
+                                    )
+                                }
 
-                                        if (candles.isNotEmpty()) {
-                                            val latest = candles.last()
-
-                                            Text(
-                                                if (intervalMinutes == 0)
-                                                    "قیمت پایانی آخرین کندل روزانه"
-                                                else
-                                                    "قیمت پایانی آخرین کندل",
-                                                color = TextGray
-                                            )
-
-                                            Text(
-                                                String.format(
-                                                    Locale.US,
-                                                    "%,.0f ریال",
-                                                    latest.close
-                                                ),
-                                                color = DarkGold,
-                                                fontSize = 27.sp,
-                                                fontWeight = FontWeight.Bold
-                                            )
-
-                                            ChangePercentRow(
-                                                getAyiarPercentChange()
-                                            )
-
-                                            HorizontalDivider(
-                                                color = Color(0xFFEAEAEA)
-                                            )
-
-                                            PriceRow("بازشدن", latest.open)
-                                            PriceRow("بالاترین", latest.high)
-                                            PriceRow("پایین‌ترین", latest.low)
-                                            PriceRow("پایانی", latest.close)
-
-                                            Text(
-                                                "حجم معاملات: " +
-                                                    String.format(
-                                                        Locale.US,
-                                                        "%,.0f",
-                                                        latest.volume
-                                                    ),
-                                                color = TextGray
-                                            )
-
-                                            Text(
-                                                "تعداد کندل‌های دریافتی: ${candles.size}",
-                                                color = TextGray
-                                            )
-
-                                            Text(
-                                                "شروع آخرین کندل: " +
-                                                    formatTehranTime(
-                                                        latest.openTime
-                                                    ),
-                                                color = TextGray
-                                            )
-
-                                            Text(
-                                                "منبع: TSETMC",
-                                                color = TextGray
-                                            )
-
-                                            HorizontalDivider(
-                                                color = Color(0xFFEAEAEA)
-                                            )
-
-                                            CandlestickChart(
-                                                candles = candles,
-                                                modifier = Modifier.fillMaxWidth()
-                                            )
-                                        } else {
-                                            Text(
-                                                "در حال حاضر کندلی برای نمایش دریافت نشد.",
-                                                color = TextGray
-                                            )
-                                        }
-                                    }
+                                if (ayiarQuote == null && !priceLoading) {
+                                    Text(
+                                        "قیمت عیار دریافت نشده است.",
+                                        color = TextGray
+                                    )
                                 }
                             }
 
                             else -> {
                                 Text(
                                     "منبع قیمت این بازار هنوز متصل نشده است.",
-                                    color = TextGray,
-                                    fontSize = 14.sp
+                                    color = TextGray
                                 )
-                                ChangePercentRow(null)
                             }
                         }
 
-                        if (errorMessage != null) {
+                        if (priceError != null) {
                             Text(
-                                "پیام: $errorMessage",
+                                "پیام: $priceError",
                                 color = Red,
                                 fontSize = 13.sp
                             )
                         }
-
-                        Text(
-                            "سیگنال معاملاتی تا زمان تأیید کیفیت و تازگی داده صادر نمی‌شود.",
-                            color = TextGray,
-                            fontSize = 13.sp
-                        )
                     }
                 }
 
-                Text(
-                    "ابزارهای تحلیل تکنیکال",
-                    color = TextDark,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold
-                )
+                ExpandableSection("نمودار قیمت") {
+                    when (selectedMarket) {
+                        "صندوق طلای عیار" -> {
+                            if (chartLoading) {
+                                CircularProgressIndicator(color = DarkGold)
+                                Text("در حال دریافت نمودار...")
+                            } else {
+                                val candles = ayiarCandles?.candles.orEmpty()
+                                if (candles.isNotEmpty()) {
+                                    Text(
+                                        "تعداد کندل‌ها: ${candles.size}",
+                                        color = TextGray
+                                    )
+                                    CandlestickChart(
+                                        candles = candles,
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+                                } else {
+                                    Text(
+                                        chartError
+                                            ?: "نموداری برای نمایش موجود نیست.",
+                                        color = TextGray
+                                    )
+                                }
+                            }
+                        }
 
-                Text(
-                    "EMA • RSI • MACD • Ichimoku • Fibonacci • ATR • ADX",
-                    color = DarkGold,
-                    fontSize = 13.sp
-                )
+                        "انس جهانی طلا" -> {
+                            Text(
+                                "اتصال تاریخچه نمودار انس هنوز انجام نشده است.",
+                                color = TextGray
+                            )
+                        }
+
+                        else -> {
+                            Text(
+                                "پس از اتصال منبع قیمت طلای ۱۸ عیار، نمودار این بازار فعال می‌شود.",
+                                color = TextGray
+                            )
+                        }
+                    }
+                }
+
+                ExpandableSection("سیگنال معاملاتی") {
+                    Text(
+                        "موتور صدور سیگنال هنوز به این صفحه متصل نشده است. " +
+                            "تا زمان تأیید کیفیت و تازگی داده‌ها، سیگنال خرید یا فروش صادر نمی‌شود.",
+                        color = TextGray
+                    )
+                }
+
+                ExpandableSection("تحلیل تکنیکال") {
+                    Text(
+                        "ابزارهای موردنظر: EMA 20/50/200، RSI، MACD، " +
+                            "Bollinger Bands، ATR، Ichimoku، Fibonacci و ADX.",
+                        color = TextGray
+                    )
+                    Text(
+                        "تحلیل مستقل هر بازار پس از اتصال موتور تحلیل نمایش داده می‌شود.",
+                        color = TextGray
+                    )
+                }
 
                 Spacer(Modifier.height(12.dp))
+            }
+        }
+    }
+}
+
+@Composable
+private fun ExpandableSection(
+    title: String,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = Color.White
+        ),
+        border = BorderStroke(1.dp, Color(0xFFE9DFCA))
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .then(
+                        Modifier
+                    ),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    title,
+                    color = DarkGold,
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.weight(1f)
+                )
+                TextButton(onClick = { expanded = !expanded }) {
+                    Text(
+                        if (expanded) "بستن ▲" else "نمایش ▼",
+                        color = DarkGold
+                    )
+                }
+            }
+
+            if (expanded) {
+                HorizontalDivider(
+                    color = Color(0xFFEAEAEA),
+                    modifier = Modifier.padding(vertical = 10.dp)
+                )
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    content = content
+                )
             }
         }
     }
@@ -691,10 +669,7 @@ private fun calculatePercentChange(
     current: Double,
     previous: Double?
 ): Double? {
-    if (previous == null || previous <= 0.0) {
-        return null
-    }
-
+    if (previous == null || previous <= 0.0) return null
     return ((current - previous) / previous) * 100.0
 }
 
@@ -721,64 +696,29 @@ private fun ChangePercentRow(percent: Double?) {
 }
 
 private fun isAyiarMarketOpen(): Boolean {
-    val tehranNow = ZonedDateTime.now(TehranZone)
-
-    val day = tehranNow.dayOfWeek
-    val hour = tehranNow.hour
-
+    val now = ZonedDateTime.now(TehranZone)
+    val day = now.dayOfWeek
     val isTradingDay =
         day != DayOfWeek.THURSDAY &&
         day != DayOfWeek.FRIDAY
 
-    return isTradingDay && hour >= 12 && hour < 18
-}
-
-@Composable
-private fun PriceRow(
-    title: String,
-    value: Double
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        Text(
-            title,
-            color = TextGray
-        )
-
-        Text(
-            String.format(
-                Locale.US,
-                "%,.0f ریال",
-                value
-            ),
-            color = TextDark,
-            fontWeight = FontWeight.Medium
-        )
-    }
+    return isTradingDay && now.hour >= 12 && now.hour < 18
 }
 
 private fun formatTehranTime(timestamp: Long): String {
-    val timeZone = TimeZone.getTimeZone("Asia/Tehran")
-
     val calendar = Calendar.getInstance(
         android.icu.util.TimeZone.getTimeZone("Asia/Tehran"),
         ULocale("fa_IR@calendar=persian")
     )
 
-    calendar.setTimeInMillis(timestamp)
+    calendar.timeInMillis = timestamp
 
     val year = calendar.get(Calendar.YEAR)
     val month = calendar.get(Calendar.MONTH) + 1
     val day = calendar.get(Calendar.DATE)
 
-    val timeFormatter = SimpleDateFormat(
-        "HH:mm:ss",
-        Locale.US
-    )
-
-    timeFormatter.timeZone = timeZone
+    val formatter = SimpleDateFormat("HH:mm:ss", Locale.US)
+    formatter.timeZone = TimeZone.getTimeZone("Asia/Tehran")
 
     val date = String.format(
         Locale.US,
@@ -788,7 +728,5 @@ private fun formatTehranTime(timestamp: Long): String {
         day
     )
 
-    val time = timeFormatter.format(Date(timestamp))
-
-    return "$date $time"
+    return "$date ${formatter.format(Date(timestamp))}"
 }
