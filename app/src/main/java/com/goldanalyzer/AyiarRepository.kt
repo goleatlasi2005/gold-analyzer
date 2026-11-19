@@ -9,6 +9,7 @@ import org.json.JSONObject
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.util.concurrent.TimeUnit
 
 data class AyiarQuote(
     val currentPrice: Double,
@@ -19,7 +20,12 @@ data class AyiarQuote(
 )
 
 class AyiarRepository(
-    private val httpClient: OkHttpClient = OkHttpClient()
+    private val httpClient: OkHttpClient = OkHttpClient.Builder()
+        .connectTimeout(20, TimeUnit.SECONDS)
+        .readTimeout(45, TimeUnit.SECONDS)
+        .writeTimeout(30, TimeUnit.SECONDS)
+        .callTimeout(60, TimeUnit.SECONDS)
+        .build()
 ) {
 
     companion object {
