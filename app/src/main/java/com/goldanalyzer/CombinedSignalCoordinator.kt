@@ -96,45 +96,40 @@ object CombinedSignalCoordinator {
     suspend fun loadMediumTerm(
         repository: AyiarRepository,
         nowMillis: Long = System.currentTimeMillis()
-    ): CombinedPeriodResult = coroutineScope {
+    ): CombinedPeriodResult {
 
-        val oneHour = async {
-            loadTimeframe(
-                repository = repository,
-                intervalMinutes = 60,
-                label = "۱ ساعت",
-                weightPercent = 15,
-                nowMillis = nowMillis
-            )
-        }
-
-        val fourHour = async {
-            loadTimeframe(
-                repository = repository,
-                intervalMinutes = 240,
-                label = "۴ ساعت",
-                weightPercent = 30,
-                nowMillis = nowMillis
-            )
-        }
-
-        val daily = async {
-            loadTimeframe(
-                repository = repository,
-                intervalMinutes = null,
-                label = "روزانه",
-                weightPercent = 55,
-                nowMillis = nowMillis
-            )
-        }
-
-        val results = listOf(
-            oneHour.await(),
-            fourHour.await(),
-            daily.await()
+        // دریافت ترتیبی برای جلوگیری از فشار هم‌زمان به سرویس مفید
+        val oneHour = loadTimeframe(
+            repository = repository,
+            intervalMinutes = 60,
+            label = "۱ ساعت",
+            weightPercent = 15,
+            nowMillis = nowMillis
         )
 
-        CombinedPeriodResult(
+        val fourHour = loadTimeframe(
+            repository = repository,
+            intervalMinutes = 240,
+            label = "۴ ساعت",
+            weightPercent = 30,
+            nowMillis = nowMillis
+        )
+
+        val daily = loadTimeframe(
+            repository = repository,
+            intervalMinutes = null,
+            label = "روزانه",
+            weightPercent = 55,
+            nowMillis = nowMillis
+        )
+
+        val results = listOf(
+            oneHour,
+            fourHour,
+            daily
+        )
+
+        return CombinedPeriodResult(
             title = "میان‌مدت",
             timeframes = results,
             combinedSignal = combinePeriod(
@@ -153,8 +148,8 @@ object CombinedSignalCoordinator {
     ): CombinedTimeframeResult {
 
         return try {
-            // استفاده از همان داده و سیگنال ذخیره‌شده
-            // که بخش سیگنال اختصاصی نیز از آن استفاده خواهد کرد.
+            // استفاده از همان تحلیل و داده ذخیره‌شده
+            // که بخش سیگنال اختصاصی نیز از آن استفاده می‌کند.
             val analysis = TimeframeAnalysisStore.getAnalysis(
                 repository = repository,
                 intervalMinutes = intervalMinutes,
@@ -175,6 +170,8 @@ object CombinedSignalCoordinator {
                     null
                 }
             )
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
         } catch (e: Exception) {
             CombinedTimeframeResult(
                 timeframeLabel = label,
