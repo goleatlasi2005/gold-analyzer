@@ -83,9 +83,36 @@ fun GoldAnalyzerApp() {
     var chartError by remember { mutableStateOf<String?>(null) }
     var refreshStatus by remember { mutableStateOf<String?>(null) }
 
+    // وضعیت سیگنال ترکیبی کوتاه‌مدت
+    var shortTermCombined by remember {
+        mutableStateOf<CombinedPeriodResult?>(null)
+    }
+
+    var shortTermCombinedLoading by remember {
+        mutableStateOf(false)
+    }
+
+    var shortTermCombinedError by remember {
+        mutableStateOf<String?>(null)
+    }
+
+    // وضعیت سیگنال ترکیبی میان‌مدت
+    var mediumTermCombined by remember {
+        mutableStateOf<CombinedPeriodResult?>(null)
+    }
+
+    var mediumTermCombinedLoading by remember {
+        mutableStateOf(false)
+    }
+
+    var mediumTermCombinedError by remember {
+        mutableStateOf<String?>(null)
+    }
+
     val goldRepository = remember { GoldSpotRepository() }
     val ayiarRepository = remember { AyiarRepository() }
     val refreshMutex = remember { Mutex() }
+    val combinedRefreshMutex = remember { Mutex() }
     val scope = rememberCoroutineScope()
 
     val markets = listOf(
@@ -150,6 +177,44 @@ fun GoldAnalyzerApp() {
             chartError = e.message ?: "خطا در دریافت نمودار"
         } finally {
             chartLoading = false
+        }
+    }
+
+    suspend fun refreshShortTermCombined() {
+        combinedRefreshMutex.withLock {
+            shortTermCombinedLoading = true
+            shortTermCombinedError = null
+
+            try {
+                shortTermCombined =
+                    CombinedSignalCoordinator.loadShortTerm(
+                        repository = ayiarRepository
+                    )
+            } catch (e: Exception) {
+                shortTermCombinedError =
+                    e.message ?: "خطا در محاسبه سیگنال کوتاه‌مدت"
+            } finally {
+                shortTermCombinedLoading = false
+            }
+        }
+    }
+
+    suspend fun refreshMediumTermCombined() {
+        combinedRefreshMutex.withLock {
+            mediumTermCombinedLoading = true
+            mediumTermCombinedError = null
+
+            try {
+                mediumTermCombined =
+                    CombinedSignalCoordinator.loadMediumTerm(
+                        repository = ayiarRepository
+                    )
+            } catch (e: Exception) {
+                mediumTermCombinedError =
+                    e.message ?: "خطا در محاسبه سیگنال میان‌مدت"
+            } finally {
+                mediumTermCombinedLoading = false
+            }
         }
     }
 
@@ -267,6 +332,33 @@ fun GoldAnalyzerApp() {
                 } else {
                     delay(60_000L)
                 }
+            }
+        }
+    }
+
+    // دریافت اولیه و به‌روزرسانی سیگنال ترکیبی کوتاه‌مدت
+    LaunchedEffect(selectedMarket) {
+        if (selectedMarket == "صندوق طلای عیار") {
+            while (true) {
+                refreshShortTermCombined()
+
+                delay(
+                    if (isAyiarMarketOpen()) {
+                        5 * 60 * 1000L
+                    } else {
+                        60 * 60 * 1000L
+                    }
+                )
+            }
+        }
+    }
+
+    // دریافت اولیه و به‌روزرسانی سیگنال ترکیبی میان‌مدت
+    LaunchedEffect(selectedMarket) {
+        if (selectedMarket == "صندوق طلای عیار") {
+            while (true) {
+                refreshMediumTermCombined()
+                delay(60 * 60 * 1000L)
             }
         }
     }
@@ -717,6 +809,40 @@ fun GoldAnalyzerApp() {
                     }
                 }
 
+                // سیگنال ترکیبی کوتاه‌مدت
+                ExpandableSection("سیگنال ترکیبی کوتاه‌مدت") {
+                    if (selectedMarket != "صندوق طلای عیار") {
+                        Text(
+                            "این بخش فعلاً برای صندوق طلای عیار فعال است.",
+                            color = TextGray
+                        )
+                    } else {
+                        CombinedPeriodContent(
+                            period = shortTermCombined,
+                            loading = shortTermCombinedLoading,
+                            error = shortTermCombinedError,
+                            primaryTimeframeLabel = "۳۰ دقیقه"
+                        )
+                    }
+                }
+
+                // سیگنال ترکیبی میان‌مدت
+                ExpandableSection("سیگنال ترکیبی میان‌مدت") {
+                    if (selectedMarket != "صندوق طلای عیار") {
+                        Text(
+                            "این بخش فعلاً برای صندوق طلای عیار فعال است.",
+                            color = TextGray
+                        )
+                    } else {
+                        CombinedPeriodContent(
+                            period = mediumTermCombined,
+                            loading = mediumTermCombinedLoading,
+                            error = mediumTermCombinedError,
+                            primaryTimeframeLabel = "روزانه"
+                        )
+                    }
+                }
+
                 ExpandableSection("تحلیل تکنیکال") {
                     if (selectedMarket == "صندوق طلای عیار") {
                         Text(
@@ -883,6 +1009,134 @@ fun GoldAnalyzerApp() {
                 Spacer(Modifier.height(12.dp))
             }
         }
+    }
+}
+
+@Composable
+private fun CombinedPeriodContent(
+    period: CombinedPeriodResult?,
+    loading: Boolean,
+    error: String?,
+    primaryTimeframeLabel: String
+) {
+    if (period == null) {
+        if (loading) {
+            CircularProgressIndicator(color = DarkGold)
+            Text(
+                "در حال دریافت داده‌های تایم‌فریم‌ها و محاسبه سیگنال ترکیبی...",
+                color = TextGray
+            )
+        } else {
+            Text(
+                error ?: "هنوز داده‌ای برای سیگنال ترکیبی دریافت نشده است.",
+                color = Red
+            )
+        }
+        return
+    }
+
+    if (loading) {
+        Text(
+            "در حال به‌روزرسانی سیگنال‌ها...",
+            color = DarkGold
+        )
+    }
+
+    Text(
+        "وضعیت تایم‌فریم‌های تشکیل‌دهنده:",
+        color = DarkGold,
+        fontWeight = FontWeight.Bold
+    )
+
+    period.timeframes.forEach { timeframe ->
+        Column(
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Text(
+                "${timeframe.timeframeLabel} | وزن ${timeframe.weightPercent}٪",
+                color = TextDark,
+                fontWeight = FontWeight.Bold
+            )
+
+            Text(
+                "تعداد کندل کامل: ${timeframe.candleCount}",
+                color = TextGray,
+                fontSize = 13.sp
+            )
+
+            timeframe.lastCandleTime?.let {
+                Text(
+                    "آخرین کندل: ${formatTehranTime(it)}",
+                    color = TextGray,
+                    fontSize = 12.sp
+                )
+            }
+
+            if (timeframe.signal == null) {
+                Text(
+                    timeframe.errorMessage
+                        ?: "سیگنال معتبر برای این تایم‌فریم محاسبه نشد.",
+                    color = Red,
+                    fontSize = 12.sp
+                )
+            } else {
+                val direction = when (timeframe.signal.type) {
+                    SignalType.BUY -> "خرید"
+                    SignalType.SELL -> "فروش"
+                    SignalType.HOLD -> "صبر"
+                }
+
+                Text(
+                    "سیگنال مستقل: $direction | امتیاز: ${timeframe.signal.score}",
+                    color = when (timeframe.signal.type) {
+                        SignalType.BUY -> Green
+                        SignalType.SELL -> Red
+                        SignalType.HOLD -> DarkGold
+                    },
+                    fontSize = 13.sp
+                )
+            }
+        }
+
+        HorizontalDivider(color = Color(0xFFEAEAEA))
+    }
+
+    if (period.combinedSignal == null) {
+        Text(
+            "سیگنال ترکیبی هنوز صادر نشده است.",
+            color = Red,
+            fontWeight = FontWeight.Bold
+        )
+        Text(
+            "برای صدور سیگنال، هر سه تایم‌فریم باید داده کافی و سیگنال معتبر داشته باشند.",
+            color = TextGray,
+            fontSize = 13.sp
+        )
+    } else {
+        val primary = period.timeframes.firstOrNull {
+            it.timeframeLabel == primaryTimeframeLabel
+        }
+
+        Text(
+            "نتیجه نهایی $primaryTimeframeLabel مبنا:",
+            color = DarkGold,
+            fontWeight = FontWeight.Bold
+        )
+
+        TradingSignalContent(
+            signal = period.combinedSignal,
+            candleCount = primary?.candleCount ?: 0,
+            candleTime = primary?.lastCandleTime,
+            oneWayMarket = true
+        )
+    }
+
+    if (error != null) {
+        Text(
+            "پیام به‌روزرسانی: $error",
+            color = Red,
+            fontSize = 12.sp
+        )
     }
 }
 
@@ -1276,4 +1530,3 @@ private fun formatTehranTime(timestamp: Long): String {
 
     return "$date ${formatter.format(Date(timestamp))}"
 }
-
