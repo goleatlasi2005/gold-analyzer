@@ -265,13 +265,8 @@ fun GoldAnalyzerApp() {
                 }
 
                 else -> {
-                    priceError =
-                        "منبع قیمت طلای ۱۸ عیار هنوز متصل نشده است."
+    TgjuGoldPricePanel()
                 }
-            }
-        }
-    }
-
     // به‌روزرسانی قیمت مستقل از نمودار
     LaunchedEffect(selectedMarket) {
         priceError = null
@@ -318,11 +313,8 @@ fun GoldAnalyzerApp() {
             }
 
             else -> {
-                priceError =
-                    "منبع قیمت این بازار هنوز متصل نشده است."
+    priceError = null
             }
-        }
-    }
 
     // به‌روزرسانی نمودار متناسب با تایم‌فریم
     LaunchedEffect(selectedMarket, selectedTimeframe) {
@@ -586,14 +578,9 @@ fun GoldAnalyzerApp() {
                         )
                         Spacer(Modifier.width(10.dp))
                         Text("در حال به‌روزرسانی...")
-                    } else {
-                        Text(
-                            "↻  به‌روزرسانی $selectedMarket",
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Bold
-                        )
+                    else -> {
+    priceError = null
                     }
-                }
 
                 if (refreshStatus != null) {
                     Text(refreshStatus!!, color = Green, fontSize = 13.sp)
@@ -666,13 +653,13 @@ fun GoldAnalyzerApp() {
                                         color = TextGray
                                     )
                                     Text(
-                                        if (q.isFresh) "داده تازه"
-                                        else "هشدار: داده تازه نیست",
-                                        color = if (q.isFresh) Green else Red
-                                    )
-                                }
-                            }
-
+                                        if (priceError != null && selectedMarket != "طلای ۱۸ عیار") {
+    Text(
+        "پیام: $priceError",
+        color = Red,
+        fontSize = 13.sp
+    )
+                                        }
                             "صندوق طلای عیار" -> {
                                 if (priceLoading && ayiarQuote == null) {
                                     CircularProgressIndicator(color = DarkGold)
