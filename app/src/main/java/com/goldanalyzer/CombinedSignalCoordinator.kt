@@ -54,7 +54,6 @@ object CombinedSignalCoordinator {
 
         val today = LocalDate.now(tehranZone)
 
-        // دریافت سه تایم‌فریم به‌صورت هم‌زمان
         val short5Deferred = async(Dispatchers.IO) {
             analyzeTimeframe(
                 repository = repository,
@@ -113,50 +112,57 @@ object CombinedSignalCoordinator {
     suspend fun loadMediumTerm(
         repository: AyiarRepository,
         nowMillis: Long = System.currentTimeMillis()
-    ): CombinedPeriodResult {
+    ): CombinedPeriodResult = coroutineScope {
 
         val today = LocalDate.now(tehranZone)
 
-        val medium1h = analyzeTimeframe(
-            repository = repository,
-            label = "۱ ساعت",
-            weightPercent = 15,
-            intervalMinutes = 60,
-            nowMillis = nowMillis,
-            minimumCandles = 130,
-            longEmaPeriod = 100,
-            date = today
-        )
+        // دریافت سه تایم‌فریم میان‌مدت به‌صورت هم‌زمان
+        val medium1hDeferred = async(Dispatchers.IO) {
+            analyzeTimeframe(
+                repository = repository,
+                label = "۱ ساعت",
+                weightPercent = 15,
+                intervalMinutes = 60,
+                nowMillis = nowMillis,
+                minimumCandles = 130,
+                longEmaPeriod = 100,
+                date = today
+            )
+        }
 
-        val medium4h = analyzeTimeframe(
-            repository = repository,
-            label = "۴ ساعت",
-            weightPercent = 30,
-            intervalMinutes = 240,
-            nowMillis = nowMillis,
-            minimumCandles = 130,
-            longEmaPeriod = 100,
-            date = today
-        )
+        val medium4hDeferred = async(Dispatchers.IO) {
+            analyzeTimeframe(
+                repository = repository,
+                label = "۴ ساعت",
+                weightPercent = 30,
+                intervalMinutes = 240,
+                nowMillis = nowMillis,
+                minimumCandles = 130,
+                longEmaPeriod = 100,
+                date = today
+            )
+        }
 
-        val mediumDaily = analyzeTimeframe(
-            repository = repository,
-            label = "روزانه",
-            weightPercent = 55,
-            intervalMinutes = null,
-            nowMillis = nowMillis,
-            minimumCandles = 200,
-            longEmaPeriod = 200,
-            date = today
-        )
+        val mediumDailyDeferred = async(Dispatchers.IO) {
+            analyzeTimeframe(
+                repository = repository,
+                label = "روزانه",
+                weightPercent = 55,
+                intervalMinutes = null,
+                nowMillis = nowMillis,
+                minimumCandles = 200,
+                longEmaPeriod = 200,
+                date = today
+            )
+        }
 
         val results = listOf(
-            medium1h,
-            medium4h,
-            mediumDaily
+            medium1hDeferred.await(),
+            medium4hDeferred.await(),
+            mediumDailyDeferred.await()
         )
 
-        return CombinedPeriodResult(
+        CombinedPeriodResult(
             title = "میان‌مدت",
             timeframes = results,
             combinedSignal = combinePeriod(
