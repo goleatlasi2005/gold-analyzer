@@ -1,4 +1,3 @@
-
 package com.goldanalyzer
 
 import android.os.Bundle
@@ -400,18 +399,7 @@ fun GoldAnalyzerApp() {
             }
         }
     }
-
-    // دریافت اولیه و به‌روزرسانی سیگنال ترکیبی میان‌مدت
-    LaunchedEffect(selectedMarket) {
-        if (selectedMarket == "صندوق طلای عیار") {
-            while (true) {
-                refreshMediumTermCombined()
-                delay(60 * 60 * 1000L)
-            }
-        }
-    }
-
-    val ayiarPercent = ayiarQuote?.let {
+        val ayiarPercent = ayiarQuote?.let {
         calculatePercentChange(it.currentPrice, it.previousClose)
     }
 
@@ -867,8 +855,7 @@ fun GoldAnalyzerApp() {
                         }
                     }
                 }
-
-                // سیگنال ترکیبی کوتاه‌مدت
+                                // سیگنال ترکیبی کوتاه‌مدت
                 ExpandableSection("سیگنال ترکیبی کوتاه‌مدت") {
                     if (selectedMarket != "صندوق طلای عیار") {
                         Text(
@@ -886,7 +873,16 @@ fun GoldAnalyzerApp() {
                 }
 
                 // سیگنال ترکیبی میان‌مدت
-                ExpandableSection("سیگنال ترکیبی میان‌مدت") {
+                ExpandableSection(
+                    title = "سیگنال ترکیبی میان‌مدت",
+                    onExpanded = {
+                        if (selectedMarket == "صندوق طلای عیار") {
+                            scope.launch {
+                                refreshMediumTermCombined()
+                            }
+                        }
+                    }
+                ) {
                     if (selectedMarket != "صندوق طلای عیار") {
                         Text(
                             "این بخش فعلاً برای صندوق طلای عیار فعال است.",
@@ -1198,7 +1194,6 @@ private fun CombinedPeriodContent(
         )
     }
 }
-
 @Composable
 private fun SupportResistanceRow(
     level: SupportResistanceLevel
@@ -1427,6 +1422,7 @@ private fun formatRial(value: Double): String {
 @Composable
 private fun ExpandableSection(
     title: String,
+    onExpanded: (() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
@@ -1451,7 +1447,13 @@ private fun ExpandableSection(
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.weight(1f)
                 )
-                TextButton(onClick = { expanded = !expanded }) {
+                TextButton(
+                    onClick = {
+                        val willExpand = !expanded
+                        expanded = willExpand
+                        if (willExpand) onExpanded?.invoke()
+                    }
+                ) {
                     Text(
                         if (expanded) "بستن ▲" else "نمایش ▼",
                         color = DarkGold
