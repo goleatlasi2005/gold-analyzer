@@ -1,5 +1,9 @@
+
 package com.goldanalyzer
 
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import java.time.LocalDate
 import java.time.ZoneId
 
@@ -46,46 +50,57 @@ object CombinedSignalCoordinator {
     suspend fun loadShortTerm(
         repository: AyiarRepository,
         nowMillis: Long = System.currentTimeMillis()
-    ): CombinedPeriodResult {
+    ): CombinedPeriodResult = coroutineScope {
 
         val today = LocalDate.now(tehranZone)
 
-        val short5 = analyzeTimeframe(
-            repository = repository,
-            label = "۵ دقیقه",
-            weightPercent = 15,
-            intervalMinutes = 5,
-            nowMillis = nowMillis,
-            minimumCandles = 200,
-            longEmaPeriod = 200,
-            date = today
+        // دریافت سه تایم‌فریم به‌صورت هم‌زمان
+        val short5Deferred = async(Dispatchers.IO) {
+            analyzeTimeframe(
+                repository = repository,
+                label = "۵ دقیقه",
+                weightPercent = 15,
+                intervalMinutes = 5,
+                nowMillis = nowMillis,
+                minimumCandles = 200,
+                longEmaPeriod = 200,
+                date = today
+            )
+        }
+
+        val short15Deferred = async(Dispatchers.IO) {
+            analyzeTimeframe(
+                repository = repository,
+                label = "۱۵ دقیقه",
+                weightPercent = 30,
+                intervalMinutes = 15,
+                nowMillis = nowMillis,
+                minimumCandles = 200,
+                longEmaPeriod = 200,
+                date = today
+            )
+        }
+
+        val short30Deferred = async(Dispatchers.IO) {
+            analyzeTimeframe(
+                repository = repository,
+                label = "۳۰ دقیقه",
+                weightPercent = 55,
+                intervalMinutes = 30,
+                nowMillis = nowMillis,
+                minimumCandles = 200,
+                longEmaPeriod = 200,
+                date = today
+            )
+        }
+
+        val results = listOf(
+            short5Deferred.await(),
+            short15Deferred.await(),
+            short30Deferred.await()
         )
 
-        val short15 = analyzeTimeframe(
-            repository = repository,
-            label = "۱۵ دقیقه",
-            weightPercent = 30,
-            intervalMinutes = 15,
-            nowMillis = nowMillis,
-            minimumCandles = 200,
-            longEmaPeriod = 200,
-            date = today
-        )
-
-        val short30 = analyzeTimeframe(
-            repository = repository,
-            label = "۳۰ دقیقه",
-            weightPercent = 55,
-            intervalMinutes = 30,
-            nowMillis = nowMillis,
-            minimumCandles = 200,
-            longEmaPeriod = 200,
-            date = today
-        )
-
-        val results = listOf(short5, short15, short30)
-
-        return CombinedPeriodResult(
+        CombinedPeriodResult(
             title = "کوتاه‌مدت",
             timeframes = results,
             combinedSignal = combinePeriod(
