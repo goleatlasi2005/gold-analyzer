@@ -22,9 +22,10 @@ data class AyiarQuote(
 class AyiarRepository(
     private val httpClient: OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(20, TimeUnit.SECONDS)
-        .readTimeout(45, TimeUnit.SECONDS)
+        .readTimeout(75, TimeUnit.SECONDS)
         .writeTimeout(30, TimeUnit.SECONDS)
-        .callTimeout(60, TimeUnit.SECONDS)
+        .callTimeout(90, TimeUnit.SECONDS)
+        .retryOnConnectionFailure(true)
         .build()
 ) {
 
@@ -44,6 +45,17 @@ class AyiarRepository(
 
         private val TEHRAN_ZONE = ZoneId.of("Asia/Tehran")
         private val DATE_FORMAT = DateTimeFormatter.BASIC_ISO_DATE
+
+        private fun historyDays(intervalMinutes: Int): Int {
+            return when (intervalMinutes) {
+                5 -> 7
+                15 -> 21
+                30 -> 45
+                60 -> 60
+                240 -> 240
+                else -> 30
+            }
+        }
     }
 
     // دریافت قیمت لحظه‌ای از TSETMC
@@ -88,7 +100,7 @@ class AyiarRepository(
         }
     }
 
-    // دریافت کندل‌های کوتاه‌مدت از بورس‌ویو مفید
+    // دریافت کندل‌های صندوق عیار از بورس‌ویو مفید
     suspend fun getCandles(
         date: LocalDate = LocalDate.now(TEHRAN_ZONE),
         intervalMinutes: Int = 5
@@ -98,10 +110,13 @@ class AyiarRepository(
             "تایم‌فریم انتخاب‌شده معتبر نیست"
         }
 
+        // برای هر تایم‌فریم فقط به اندازه موردنیاز تاریخچه دریافت می‌شود.
+        val days = historyDays(intervalMinutes)
+
         val url = "$WORKER_URL" +
             "?symbol=IRTKMOFD0001" +
             "&resolution=$intervalMinutes" +
-            "&days=30"
+            "&days=$days"
 
         val request = Request.Builder()
             .url(url)
