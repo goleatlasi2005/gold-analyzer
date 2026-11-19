@@ -1,11 +1,8 @@
 
 package com.goldanalyzer
 
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
-import java.time.LocalDate
-import java.time.ZoneId
 
 data class CombinedTimeframeResult(
     val timeframeLabel: String,
@@ -30,8 +27,6 @@ data class CombinedSignalSnapshot(
 
 object CombinedSignalCoordinator {
 
-    private val tehranZone = ZoneId.of("Asia/Tehran")
-
     suspend fun load(
         repository: AyiarRepository,
         nowMillis: Long = System.currentTimeMillis()
@@ -52,51 +47,40 @@ object CombinedSignalCoordinator {
         nowMillis: Long = System.currentTimeMillis()
     ): CombinedPeriodResult = coroutineScope {
 
-        val today = LocalDate.now(tehranZone)
-
-        val short5Deferred = async(Dispatchers.IO) {
-            analyzeTimeframe(
+        val fiveMinute = async {
+            loadTimeframe(
                 repository = repository,
+                intervalMinutes = 5,
                 label = "۵ دقیقه",
                 weightPercent = 15,
-                intervalMinutes = 5,
-                nowMillis = nowMillis,
-                minimumCandles = 200,
-                longEmaPeriod = 200,
-                date = today
+                nowMillis = nowMillis
             )
         }
 
-        val short15Deferred = async(Dispatchers.IO) {
-            analyzeTimeframe(
+        val fifteenMinute = async {
+            loadTimeframe(
                 repository = repository,
+                intervalMinutes = 15,
                 label = "۱۵ دقیقه",
                 weightPercent = 30,
-                intervalMinutes = 15,
-                nowMillis = nowMillis,
-                minimumCandles = 200,
-                longEmaPeriod = 200,
-                date = today
+                nowMillis = nowMillis
             )
         }
 
-        val short30Deferred = async(Dispatchers.IO) {
-            analyzeTimeframe(
+        val thirtyMinute = async {
+            loadTimeframe(
                 repository = repository,
+                intervalMinutes = 30,
                 label = "۳۰ دقیقه",
                 weightPercent = 55,
-                intervalMinutes = 30,
-                nowMillis = nowMillis,
-                minimumCandles = 200,
-                longEmaPeriod = 200,
-                date = today
+                nowMillis = nowMillis
             )
         }
 
         val results = listOf(
-            short5Deferred.await(),
-            short15Deferred.await(),
-            short30Deferred.await()
+            fiveMinute.await(),
+            fifteenMinute.await(),
+            thirtyMinute.await()
         )
 
         CombinedPeriodResult(
@@ -114,52 +98,40 @@ object CombinedSignalCoordinator {
         nowMillis: Long = System.currentTimeMillis()
     ): CombinedPeriodResult = coroutineScope {
 
-        val today = LocalDate.now(tehranZone)
-
-        // دریافت سه تایم‌فریم میان‌مدت به‌صورت هم‌زمان
-        val medium1hDeferred = async(Dispatchers.IO) {
-            analyzeTimeframe(
+        val oneHour = async {
+            loadTimeframe(
                 repository = repository,
+                intervalMinutes = 60,
                 label = "۱ ساعت",
                 weightPercent = 15,
-                intervalMinutes = 60,
-                nowMillis = nowMillis,
-                minimumCandles = 130,
-                longEmaPeriod = 100,
-                date = today
+                nowMillis = nowMillis
             )
         }
 
-        val medium4hDeferred = async(Dispatchers.IO) {
-            analyzeTimeframe(
+        val fourHour = async {
+            loadTimeframe(
                 repository = repository,
+                intervalMinutes = 240,
                 label = "۴ ساعت",
                 weightPercent = 30,
-                intervalMinutes = 240,
-                nowMillis = nowMillis,
-                minimumCandles = 130,
-                longEmaPeriod = 100,
-                date = today
+                nowMillis = nowMillis
             )
         }
 
-        val mediumDailyDeferred = async(Dispatchers.IO) {
-            analyzeTimeframe(
+        val daily = async {
+            loadTimeframe(
                 repository = repository,
+                intervalMinutes = null,
                 label = "روزانه",
                 weightPercent = 55,
-                intervalMinutes = null,
-                nowMillis = nowMillis,
-                minimumCandles = 200,
-                longEmaPeriod = 200,
-                date = today
+                nowMillis = nowMillis
             )
         }
 
         val results = listOf(
-            medium1hDeferred.await(),
-            medium4hDeferred.await(),
-            mediumDailyDeferred.await()
+            oneHour.await(),
+            fourHour.await(),
+            daily.await()
         )
 
         CombinedPeriodResult(
@@ -172,45 +144,32 @@ object CombinedSignalCoordinator {
         )
     }
 
-    private suspend fun analyzeTimeframe(
+    private suspend fun loadTimeframe(
         repository: AyiarRepository,
+        intervalMinutes: Int?,
         label: String,
         weightPercent: Int,
-        intervalMinutes: Int?,
-        nowMillis: Long,
-        minimumCandles: Int,
-        longEmaPeriod: Int,
-        date: LocalDate
+        nowMillis: Long
     ): CombinedTimeframeResult {
 
         return try {
-            val series = if (intervalMinutes == null) {
-                repository.getDailyCandles(500)
-            } else {
-                repository.getCandles(
-                    date = date,
-                    intervalMinutes = intervalMinutes
-                )
-            }
-
-            val completedCandles = series.candles
-                .filter { it.closeTime <= nowMillis }
-                .sortedBy { it.openTime }
-
-            val signal = SignalEngine.analyze(
-                candles = completedCandles,
-                nowMillis = nowMillis,
-                minimumCandles = minimumCandles,
-                longEmaPeriod = longEmaPeriod
+            // استفاده از همان داده و سیگنال ذخیره‌شده
+            // که بخش سیگنال اختصاصی نیز از آن استفاده خواهد کرد.
+            val analysis = TimeframeAnalysisStore.getAnalysis(
+                repository = repository,
+                intervalMinutes = intervalMinutes,
+                nowMillis = nowMillis
             )
 
             CombinedTimeframeResult(
                 timeframeLabel = label,
                 weightPercent = weightPercent,
-                candleCount = completedCandles.size,
-                lastCandleTime = completedCandles.lastOrNull()?.closeTime,
-                signal = signal,
-                errorMessage = if (signal == null) {
+                candleCount = analysis.completedCandles.size,
+                lastCandleTime = analysis.completedCandles
+                    .lastOrNull()
+                    ?.closeTime,
+                signal = analysis.signal,
+                errorMessage = if (analysis.signal == null) {
                     "داده کامل برای محاسبه سیگنال کافی نیست."
                 } else {
                     null
@@ -235,7 +194,10 @@ object CombinedSignalCoordinator {
     ): TradingSignal? {
 
         // هر سه تایم‌فریم باید سیگنال معتبر داشته باشند.
-        if (results.size != 3 || results.any { it.signal == null }) {
+        if (
+            results.size != 3 ||
+            results.any { it.signal == null }
+        ) {
             return null
         }
 
