@@ -1,4 +1,3 @@
-
 package com.goldanalyzer
 
 import java.time.LocalDate
@@ -34,9 +33,23 @@ object CombinedSignalCoordinator {
         nowMillis: Long = System.currentTimeMillis()
     ): CombinedSignalSnapshot {
 
+        val shortTerm = loadShortTerm(repository, nowMillis)
+        val mediumTerm = loadMediumTerm(repository, nowMillis)
+
+        return CombinedSignalSnapshot(
+            shortTerm = shortTerm,
+            mediumTerm = mediumTerm,
+            updatedAt = nowMillis
+        )
+    }
+
+    suspend fun loadShortTerm(
+        repository: AyiarRepository,
+        nowMillis: Long = System.currentTimeMillis()
+    ): CombinedPeriodResult {
+
         val today = LocalDate.now(tehranZone)
 
-        // کوتاه‌مدت: ۵، ۱۵ و ۳۰ دقیقه
         val short5 = analyzeTimeframe(
             repository = repository,
             label = "۵ دقیقه",
@@ -70,7 +83,25 @@ object CombinedSignalCoordinator {
             date = today
         )
 
-        // میان‌مدت: ۱ ساعت، ۴ ساعت و روزانه
+        val results = listOf(short5, short15, short30)
+
+        return CombinedPeriodResult(
+            title = "کوتاه‌مدت",
+            timeframes = results,
+            combinedSignal = combinePeriod(
+                results = results,
+                primaryTimeframeLabel = "۳۰ دقیقه"
+            )
+        )
+    }
+
+    suspend fun loadMediumTerm(
+        repository: AyiarRepository,
+        nowMillis: Long = System.currentTimeMillis()
+    ): CombinedPeriodResult {
+
+        val today = LocalDate.now(tehranZone)
+
         val medium1h = analyzeTimeframe(
             repository = repository,
             label = "۱ ساعت",
@@ -104,35 +135,19 @@ object CombinedSignalCoordinator {
             date = today
         )
 
-        val shortResults = listOf(short5, short15, short30)
-        val mediumResults = listOf(
+        val results = listOf(
             medium1h,
             medium4h,
             mediumDaily
         )
 
-        val shortSignal = combinePeriod(
-            results = shortResults,
-            primaryTimeframeLabel = "۳۰ دقیقه"
-        )
-
-        val mediumSignal = combinePeriod(
-            results = mediumResults,
-            primaryTimeframeLabel = "روزانه"
-        )
-
-        return CombinedSignalSnapshot(
-            shortTerm = CombinedPeriodResult(
-                title = "کوتاه‌مدت",
-                timeframes = shortResults,
-                combinedSignal = shortSignal
-            ),
-            mediumTerm = CombinedPeriodResult(
-                title = "میان‌مدت",
-                timeframes = mediumResults,
-                combinedSignal = mediumSignal
-            ),
-            updatedAt = nowMillis
+        return CombinedPeriodResult(
+            title = "میان‌مدت",
+            timeframes = results,
+            combinedSignal = combinePeriod(
+                results = results,
+                primaryTimeframeLabel = "روزانه"
+            )
         )
     }
 
