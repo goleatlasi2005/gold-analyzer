@@ -1,3 +1,4 @@
+
 package com.goldanalyzer
 
 import android.os.Bundle
@@ -73,6 +74,19 @@ fun GoldAnalyzerApp() {
 
     var ayiarDailyCandles by remember {
         mutableStateOf<CandleSeries?>(null)
+    }
+
+    // نتیجه تحلیل تایم‌فریم انتخاب‌شده؛ همین نتیجه در سیگنال ترکیبی هم مصرف می‌شود.
+    var selectedTimeframeAnalysis by remember {
+        mutableStateOf<TimeframeAnalysis?>(null)
+    }
+
+    var selectedAnalysisLoading by remember {
+        mutableStateOf(false)
+    }
+
+    var selectedAnalysisError by remember {
+        mutableStateOf<String?>(null)
     }
 
     var priceLoading by remember { mutableStateOf(false) }
@@ -336,6 +350,40 @@ fun GoldAnalyzerApp() {
         }
     }
 
+    // تحلیل اختصاصی تایم‌فریم انتخاب‌شده از همان Store مشترک با سیگنال ترکیبی
+    LaunchedEffect(selectedMarket, selectedTimeframe) {
+        if (selectedMarket == "صندوق طلای عیار") {
+            while (true) {
+                selectedAnalysisLoading = true
+                selectedAnalysisError = null
+
+                try {
+                    selectedTimeframeAnalysis =
+                        TimeframeAnalysisStore.getAnalysis(
+                            repository = ayiarRepository,
+                            intervalMinutes = intervalMinutes.takeIf { it > 0 }
+                        )
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    selectedAnalysisError =
+                        e.message ?: "خطا در تحلیل تایم‌فریم انتخاب‌شده"
+                    selectedTimeframeAnalysis = null
+                } finally {
+                    selectedAnalysisLoading = false
+                }
+
+                delay(
+                    if (isAyiarMarketOpen()) {
+                        chartRefreshIntervalMillis(intervalMinutes)
+                    } else {
+                        60 * 60 * 1000L
+                    }
+                )
+            }
+        }
+    }
+
     // دریافت اولیه و به‌روزرسانی سیگنال ترکیبی کوتاه‌مدت
     LaunchedEffect(selectedMarket) {
         if (selectedMarket == "صندوق طلای عیار") {
@@ -375,21 +423,17 @@ fun GoldAnalyzerApp() {
             .sortedBy { it.openTime }
     }
 
-    // محاسبه سیگنال با حداقل کندل و EMA متناسب با تایم‌فریم
-    val tradingSignal = remember(
-        ayiarCandles,
-        selectedMarket,
-        selectedTimeframe
-    ) {
-        if (selectedMarket == "صندوق طلای عیار") {
-            SignalEngine.analyze(
-                candles = completedCandles,
-                minimumCandles = requiredCandles,
-                longEmaPeriod = longEmaPeriod
-            )
-        } else {
-            null
+    // فقط نتیجه‌ای استفاده شود که دقیقاً متعلق به تایم‌فریم فعلی است.
+    val activeTimeframeAnalysis =
+        selectedTimeframeAnalysis?.takeIf {
+            it.intervalMinutes == intervalMinutes.takeIf { value -> value > 0 }
         }
+
+    // سیگنال اختصاصی و ترکیبی هر دو از همین نتیجه تحلیل استفاده می‌کنند.
+    val tradingSignal = if (selectedMarket == "صندوق طلای عیار") {
+        activeTimeframeAnalysis?.signal
+    } else {
+        null
     }
 
     // محاسبه حمایت و مقاومت استاتیک و داینامیک
@@ -761,18 +805,33 @@ fun GoldAnalyzerApp() {
                     when (selectedMarket) {
                         "صندوق طلای عیار" -> {
                             when {
-                                chartLoading && completedCandles.isEmpty() -> {
+                                selectedAnalysisLoading && activeTimeframeAnalysis == null -> {
                                     CircularProgressIndicator(color = DarkGold)
-                                    Text("در حال دریافت کندل‌ها برای تحلیل...")
+                                    Text("در حال دریافت داده و محاسبه سیگنال اختصاصی...")
                                 }
 
-                                completedCandles.size < requiredCandles -> {
+                                activeTimeframeAnalysis == null &&
+                                    selectedAnalysisError != null -> {
+                                    Text(
+                                        selectedAnalysisError!!,
+                                        color = Red
+                                    )
+                                }
+
+                                activeTimeframeAnalysis == null -> {
+                                    Text(
+                                        "هنوز تحلیل این تایم‌فریم آماده نشده است.",
+                                        color = TextGray
+                                    )
+                                }
+
+                                activeTimeframeAnalysis.completedCandles.size < requiredCandles -> {
                                     Text(
                                         "برای محاسبه سیگنال در این تایم‌فریم حداقل $requiredCandles کندل کامل لازم است.",
                                         color = TextGray
                                     )
                                     Text(
-                                        "تعداد کندل کامل فعلی: ${completedCandles.size}",
+                                        "تعداد کندل کامل فعلی: ${activeTimeframeAnalysis.completedCandles.size}",
                                         color = DarkGold,
                                         fontWeight = FontWeight.Bold
                                     )
@@ -792,9 +851,9 @@ fun GoldAnalyzerApp() {
                                 else -> {
                                     TradingSignalContent(
                                         signal = tradingSignal,
-                                        candleCount = completedCandles.size,
-                                        candleTime = lastAnalyzedCandle?.openTime,
-                                        oneWayMarket = selectedMarket == "صندوق طلای عیار"
+                                        candleCount = activeTimeframeAnalysis.completedCandles.size,
+                                        candleTime = activeTimeframeAnalysis.completedCandles.lastOrNull()?.closeTime,
+                                        oneWayMarket = true
                                     )
                                 }
                             }
@@ -852,7 +911,7 @@ fun GoldAnalyzerApp() {
                         )
 
                         Text(
-                            "تعداد کندل‌های کامل: ${completedCandles.size}",
+                            "تعداد کندل‌های کامل: ${activeTimeframeAnalysis?.completedCandles?.size ?: completedCandles.size}",
                             color = TextGray
                         )
 
