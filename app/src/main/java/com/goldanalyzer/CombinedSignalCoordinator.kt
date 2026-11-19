@@ -98,15 +98,7 @@ object CombinedSignalCoordinator {
         nowMillis: Long = System.currentTimeMillis()
     ): CombinedPeriodResult {
 
-        // دریافت ترتیبی برای جلوگیری از فشار هم‌زمان به سرویس مفید
-        val oneHour = loadTimeframe(
-            repository = repository,
-            intervalMinutes = 60,
-            label = "۱ ساعت",
-            weightPercent = 15,
-            nowMillis = nowMillis
-        )
-
+        // ابتدا ۴ ساعته دریافت می‌شود.
         val fourHour = loadTimeframe(
             repository = repository,
             intervalMinutes = 240,
@@ -115,6 +107,7 @@ object CombinedSignalCoordinator {
             nowMillis = nowMillis
         )
 
+        // سپس داده روزانه دریافت می‌شود.
         val daily = loadTimeframe(
             repository = repository,
             intervalMinutes = null,
@@ -123,6 +116,17 @@ object CombinedSignalCoordinator {
             nowMillis = nowMillis
         )
 
+        // یک‌ساعته در آخر دریافت می‌شود تا فرصت داشته باشد
+        // از تحلیل اختصاصی و داده ذخیره‌شده استفاده کند.
+        val oneHour = loadTimeframe(
+            repository = repository,
+            intervalMinutes = 60,
+            label = "۱ ساعت",
+            weightPercent = 15,
+            nowMillis = nowMillis
+        )
+
+        // ترتیب خروجی و وزن‌ها مطابق ساختار اصلی حفظ می‌شود.
         val results = listOf(
             oneHour,
             fourHour,
