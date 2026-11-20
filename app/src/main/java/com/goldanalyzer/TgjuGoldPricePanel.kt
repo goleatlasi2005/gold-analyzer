@@ -37,61 +37,28 @@ fun TgjuGoldPricePanel() {
         mutableStateOf<TgjuGoldQuote?>(null)
     }
 
-    var arzQuote by remember {
-        mutableStateOf<ArzPriceQuote?>(null)
-    }
-
-    var tgjuLoading by remember {
+    var loading by remember {
         mutableStateOf(true)
     }
 
-    var arzLoading by remember {
-        mutableStateOf(true)
-    }
-
-    var tgjuError by remember {
+    var error by remember {
         mutableStateOf<String?>(null)
     }
 
-    var arzError by remember {
-        mutableStateOf<String?>(null)
-    }
-
-    val tgjuRepository = remember {
+    val repository = remember {
         TgjuGoldRepository()
-    }
-
-    val arzRepository = remember {
-        ArzPriceRepository()
     }
 
     LaunchedEffect(Unit) {
         while (true) {
-
-            // دریافت مستقل قیمت TGJU
             try {
-                tgjuLoading = tgjuQuote == null
-
-                tgjuQuote = tgjuRepository.getLivePrice()
-                tgjuError = null
-
+                loading = tgjuQuote == null
+                tgjuQuote = repository.getLivePrice()
+                error = null
             } catch (e: Exception) {
-                tgjuError = e.message ?: "خطا در دریافت TGJU"
+                error = e.message ?: "خطا در دریافت قیمت TGJU"
             } finally {
-                tgjuLoading = false
-            }
-
-            // دریافت مستقل قیمت ارزپرایس
-            try {
-                arzLoading = arzQuote == null
-
-                arzQuote = arzRepository.getLivePrice()
-                arzError = null
-
-            } catch (e: Exception) {
-                arzError = e.message ?: "خطا در دریافت ارزپرایس"
-            } finally {
-                arzLoading = false
+                loading = false
             }
 
             delay(60_000L)
@@ -104,30 +71,25 @@ fun TgjuGoldPricePanel() {
     ) {
 
         Text(
-            "مقایسه قیمت لحظه‌ای طلای ۱۸ عیار",
+            "قیمت لحظه‌ای طلای ۱۸ عیار",
             color = TgjuPanelDarkGold,
             fontSize = 17.sp,
             fontWeight = FontWeight.Bold
         )
 
-        HorizontalDivider(
-            color = Color(0xFFEAEAEA)
-        )
+        HorizontalDivider(color = Color(0xFFEAEAEA))
 
-        // منبع اول: TGJU
         Text(
-            "منبع اول: TGJU",
+            "منبع قیمت: TGJU",
             color = TgjuPanelDarkGold,
             fontSize = 14.sp,
             fontWeight = FontWeight.Bold
         )
 
-        if (tgjuLoading && tgjuQuote == null) {
-            CircularProgressIndicator(
-                color = TgjuPanelDarkGold
-            )
+        if (loading && tgjuQuote == null) {
+            CircularProgressIndicator(color = TgjuPanelDarkGold)
             Text(
-                "در حال دریافت قیمت TGJU...",
+                "در حال دریافت قیمت از TGJU...",
                 color = TgjuPanelTextGray
             )
         }
@@ -221,150 +183,15 @@ fun TgjuGoldPricePanel() {
             )
         }
 
-        if (tgjuError != null) {
+        if (error != null) {
             Text(
-                "خطای TGJU: $tgjuError",
+                "خطای TGJU: $error",
                 color = TgjuPanelRed,
                 fontSize = 12.sp
             )
         }
 
-        HorizontalDivider(
-            color = Color(0xFFEAEAEA)
-        )
-
-        // منبع دوم: ارزپرایس
-        Text(
-            "منبع دوم: ارزپرایس",
-            color = TgjuPanelDarkGold,
-            fontSize = 14.sp,
-            fontWeight = FontWeight.Bold
-        )
-
-        if (arzLoading && arzQuote == null) {
-            CircularProgressIndicator(
-                color = TgjuPanelDarkGold
-            )
-            Text(
-                "در حال دریافت قیمت ارزپرایس...",
-                color = TgjuPanelTextGray
-            )
-        }
-
-        arzQuote?.let { q ->
-
-            Text(
-                String.format(
-                    Locale.US,
-                    "%,.0f تومان",
-                    q.currentPriceToman
-                ),
-                color = TgjuPanelDarkGold,
-                fontSize = 25.sp,
-                fontWeight = FontWeight.Bold
-            )
-
-            Text(
-                "زمان ثبت: ${Date(q.observedAtMillis)}",
-                color = TgjuPanelTextGray,
-                fontSize = 12.sp
-            )
-
-            Text(
-                if (q.isFresh) {
-                    "وضعیت داده: تازه"
-                } else {
-                    "هشدار: داده ارزپرایس قدیمی است"
-                },
-                color = if (q.isFresh) {
-                    TgjuPanelGreen
-                } else {
-                    TgjuPanelRed
-                },
-                fontSize = 12.sp
-            )
-        }
-
-        if (arzError != null) {
-            Text(
-                "خطای ارزپرایس: $arzError",
-                color = TgjuPanelRed,
-                fontSize = 12.sp
-            )
-        }
-
-        // مقایسه دو منبع
-        if (tgjuQuote != null && arzQuote != null) {
-
-            HorizontalDivider(
-                color = Color(0xFFEAEAEA)
-            )
-
-            Text(
-                "اختلاف قیمت دو منبع",
-                color = TgjuPanelDarkGold,
-                fontSize = 15.sp,
-                fontWeight = FontWeight.Bold
-            )
-
-            val difference =
-                arzQuote!!.currentPriceToman -
-                tgjuQuote!!.currentPriceToman
-
-            val percentDifference =
-                if (tgjuQuote!!.currentPriceToman > 0.0) {
-                    difference /
-                    tgjuQuote!!.currentPriceToman * 100.0
-                } else {
-                    0.0
-                }
-
-            val differenceColor = when {
-                difference > 0 -> TgjuPanelGreen
-                difference < 0 -> TgjuPanelRed
-                else -> TgjuPanelTextGray
-            }
-
-            Text(
-                String.format(
-                    Locale.US,
-                    "%,.0f تومان",
-                    kotlin.math.abs(difference)
-                ),
-                color = differenceColor,
-                fontSize = 23.sp,
-                fontWeight = FontWeight.Bold
-            )
-
-            Text(
-                when {
-                    difference > 0 ->
-                        "قیمت ارزپرایس بالاتر از TGJU است."
-
-                    difference < 0 ->
-                        "قیمت ارزپرایس پایین‌تر از TGJU است."
-
-                    else ->
-                        "قیمت هر دو منبع برابر است."
-                },
-                color = differenceColor,
-                fontWeight = FontWeight.SemiBold
-            )
-
-            Text(
-                String.format(
-                    Locale.US,
-                    "درصد اختلاف: %+.2f٪",
-                    percentDifference
-                ),
-                color = differenceColor,
-                fontSize = 13.sp
-            )
-        }
-
-        HorizontalDivider(
-            color = Color(0xFFEAEAEA)
-        )
+        HorizontalDivider(color = Color(0xFFEAEAEA))
 
         Text(
             "به‌روزرسانی خودکار هر ۶۰ ثانیه",
@@ -373,7 +200,7 @@ fun TgjuGoldPricePanel() {
         )
 
         Text(
-            "TGJU منبع اصلی و ارزپرایس منبع مقایسه‌ای است.",
+            "قیمت‌ها فقط از منبع TGJU دریافت می‌شوند.",
             color = TgjuPanelTextGray,
             fontSize = 11.sp
         )
