@@ -670,7 +670,9 @@ MaterialTheme {
                                     else "هشدار: داده تازه نیست",  
                                     color = if (q.isFresh) Green else Red  
                                 )  
+                          
                             }  
+                                                        KitcoSourceDrawer()
                         }  
 
                         "صندوق طلای عیار" -> {  
