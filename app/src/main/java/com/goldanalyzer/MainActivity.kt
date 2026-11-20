@@ -316,12 +316,10 @@ LaunchedEffect(selectedMarket) {
             }  
         }  
 
-        else -> {  
-            priceError =  
-                "منبع قیمت این بازار هنوز متصل نشده است."  
-        }  
-    }  
-}  
+        else -> {
+    // پنل TGJU دریافت و به‌روزرسانی قیمت را مستقلاً انجام می‌دهد.
+    priceError = null
+        }
 
 // به‌روزرسانی نمودار متناسب با تایم‌فریم  
 LaunchedEffect(selectedMarket, selectedTimeframe) {  
