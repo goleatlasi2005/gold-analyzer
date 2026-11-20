@@ -94,7 +94,7 @@ var refreshing by remember { mutableStateOf(false) }
 
 var priceError by remember { mutableStateOf<String?>(null) }  
 var chartError by remember { mutableStateOf<String?>(null) }  
-var refreshStatus by remember { mutableStateOf<String?>(null) }  
+var tgjuPanelRefreshKey by remember { mutableStateOf(0) }
 
 // وضعیت سیگنال ترکیبی کوتاه‌مدت  
 var shortTermCombined by remember {  
