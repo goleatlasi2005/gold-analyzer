@@ -272,6 +272,7 @@ suspend fun refreshSelectedMarket() {
             }
         }
     }
+}
 // به‌روزرسانی قیمت مستقل از نمودار  
 LaunchedEffect(selectedMarket) {  
     priceError = null  
