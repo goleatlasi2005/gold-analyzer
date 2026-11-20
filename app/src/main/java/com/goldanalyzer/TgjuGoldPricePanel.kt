@@ -208,7 +208,8 @@ fun TgjuGoldPricePanel() {
                 )
             }
         }
-
+    }
+}
 @Composable
 private fun SourceDrawer(
     title: String,
