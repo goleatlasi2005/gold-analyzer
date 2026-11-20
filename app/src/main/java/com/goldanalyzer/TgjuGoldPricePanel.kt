@@ -25,6 +25,11 @@ import kotlinx.coroutines.delay
 import java.util.Date
 import java.util.Locale
 
+private val TgjuPanelDarkGold = Color(0xFF987019)
+private val TgjuPanelTextGray = Color(0xFF777777)
+private val TgjuPanelGreen = Color(0xFF26834A)
+private val TgjuPanelRed = Color(0xFFB3261E)
+
 @Composable
 fun TgjuGoldPricePanel() {
     var quote by remember {
@@ -66,14 +71,19 @@ fun TgjuGoldPricePanel() {
     ) {
         Text(
             "قیمت لحظه‌ای هر گرم طلای ۱۸ عیار",
-            color = DarkGold,
+            color = TgjuPanelDarkGold,
             fontSize = 17.sp,
             fontWeight = FontWeight.Bold
         )
 
         if (loading && quote == null) {
-            CircularProgressIndicator(color = DarkGold)
-            Text("در حال دریافت قیمت از TGJU...", color = TextGray)
+            CircularProgressIndicator(
+                color = TgjuPanelDarkGold
+            )
+            Text(
+                "در حال دریافت قیمت از TGJU...",
+                color = TgjuPanelTextGray
+            )
         }
 
         quote?.let { q ->
@@ -83,28 +93,38 @@ fun TgjuGoldPricePanel() {
                     "%,.0f تومان",
                     q.currentPriceToman
                 ),
-                color = DarkGold,
+                color = TgjuPanelDarkGold,
                 fontSize = 27.sp,
                 fontWeight = FontWeight.Bold
             )
 
             val changeColor = when {
-                q.changeToman > 0 -> Green
-                q.changeToman < 0 -> Red
-                else -> TextGray
+                q.changeToman > 0 -> TgjuPanelGreen
+                q.changeToman < 0 -> TgjuPanelRed
+                else -> TgjuPanelTextGray
             }
 
             Text(
                 "تغییر روزانه: ${
-                    String.format(Locale.US, "%+,.0f", q.changeToman)
+                    String.format(
+                        Locale.US,
+                        "%+,.0f",
+                        q.changeToman
+                    )
                 } تومان (${
-                    String.format(Locale.US, "%+.2f", q.changePercent)
+                    String.format(
+                        Locale.US,
+                        "%+.2f",
+                        q.changePercent
+                    )
                 }٪)",
                 color = changeColor,
                 fontWeight = FontWeight.SemiBold
             )
 
-            HorizontalDivider(color = Color(0xFFEAEAEA))
+            HorizontalDivider(
+                color = Color(0xFFEAEAEA)
+            )
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -112,9 +132,13 @@ fun TgjuGoldPricePanel() {
             ) {
                 Text(
                     "بیشترین: ${
-                        String.format(Locale.US, "%,.0f", q.highToman)
+                        String.format(
+                            Locale.US,
+                            "%,.0f",
+                            q.highToman
+                        )
                     } تومان",
-                    color = Green,
+                    color = TgjuPanelGreen,
                     fontSize = 12.sp
                 )
 
@@ -122,23 +146,34 @@ fun TgjuGoldPricePanel() {
 
                 Text(
                     "کمترین: ${
-                        String.format(Locale.US, "%,.0f", q.lowToman)
+                        String.format(
+                            Locale.US,
+                            "%,.0f",
+                            q.lowToman
+                        )
                     } تومان",
-                    color = Red,
+                    color = TgjuPanelRed,
                     fontSize = 12.sp
                 )
             }
 
             Text(
                 "زمان ثبت: ${Date(q.observedAtMillis)}",
-                color = TextGray,
+                color = TgjuPanelTextGray,
                 fontSize = 12.sp
             )
 
             Text(
-                if (q.isFresh) "وضعیت داده: تازه"
-                else "هشدار: زمان آخرین داده بیش از ۳ دقیقه است",
-                color = if (q.isFresh) Green else Red,
+                if (q.isFresh) {
+                    "وضعیت داده: تازه"
+                } else {
+                    "هشدار: زمان آخرین داده بیش از ۳ دقیقه است"
+                },
+                color = if (q.isFresh) {
+                    TgjuPanelGreen
+                } else {
+                    TgjuPanelRed
+                },
                 fontSize = 12.sp
             )
         }
@@ -146,14 +181,14 @@ fun TgjuGoldPricePanel() {
         if (error != null) {
             Text(
                 "خطا: $error",
-                color = Red,
+                color = TgjuPanelRed,
                 fontSize = 12.sp
             )
         }
 
         Text(
             "منبع قیمت: TGJU | به‌روزرسانی خودکار هر ۶۰ ثانیه",
-            color = TextGray,
+            color = TgjuPanelTextGray,
             fontSize = 11.sp
         )
     }
