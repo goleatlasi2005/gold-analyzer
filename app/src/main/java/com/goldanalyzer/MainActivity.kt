@@ -320,7 +320,8 @@ LaunchedEffect(selectedMarket) {
     // پنل TGJU دریافت و به‌روزرسانی قیمت را مستقلاً انجام می‌دهد.
     priceError = null
         }
-
+    }
+}
 // به‌روزرسانی نمودار متناسب با تایم‌فریم  
 LaunchedEffect(selectedMarket, selectedTimeframe) {  
     chartError = null  
