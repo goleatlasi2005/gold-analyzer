@@ -719,13 +719,11 @@ MaterialTheme {
                             }  
                         }  
 
-                        else -> {  
-                            Text(  
-                                "منبع قیمت این بازار هنوز متصل نشده است.",  
-                                color = TextGray  
-                            )  
-                        }  
-                    }  
+                        else -> {
+    key(tgjuPanelRefreshKey) {
+        TgjuGoldPricePanel()
+    }
+                        }
 
                     if (priceError != null) {  
                         Text(  
