@@ -46,7 +46,10 @@ class TgjuGoldRepository(
 
                 val root = JSONObject(body)
 
-                val item = root.optJSONObject("tgju_gold_irg18")
+                // پشتیبانی از هر دو ساختار پاسخ TGJU
+                val data = root.optJSONObject("current") ?: root
+
+                val item = data.optJSONObject("tgju_gold_irg18")
                     ?: error("اطلاعات طلای ۱۸ عیار در پاسخ TGJU پیدا نشد.")
 
                 fun readNumber(key: String): Double {
@@ -65,11 +68,7 @@ class TgjuGoldRepository(
                 val change = readNumber("d") / 10.0
                 val percent = readNumber("dp")
 
-                if (
-                    price <= 0.0 ||
-                    high <= 0.0 ||
-                    low <= 0.0
-                ) {
+                if (price <= 0.0 || high <= 0.0 || low <= 0.0) {
                     error("قیمت دریافتی از TGJU معتبر نیست.")
                 }
 
