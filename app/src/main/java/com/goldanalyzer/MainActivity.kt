@@ -673,6 +673,7 @@ MaterialTheme {
                           
                             }  
                                                         KitcoSourceDrawer()
+                                                        InvestingSourceDrawer()
                         }  
 
                         "صندوق طلای عیار" -> {  
