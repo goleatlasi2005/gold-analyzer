@@ -265,13 +265,11 @@ suspend fun refreshSelectedMarket() {
                 loadAyiarChart()  
             }  
 
-            else -> {  
-                priceError =  
-                    "منبع قیمت طلای ۱۸ عیار هنوز متصل نشده است."  
-            }  
-        }  
-    }  
-}  
+            else -> {
+    // با تغییر کلید، پنل TGJU فوراً دوباره قیمت را دریافت می‌کند.
+    tgjuPanelRefreshKey++
+    priceError = null
+            }
 
 // به‌روزرسانی قیمت مستقل از نمودار  
 LaunchedEffect(selectedMarket) {  
