@@ -37,28 +37,60 @@ fun TgjuGoldPricePanel() {
         mutableStateOf<TgjuGoldQuote?>(null)
     }
 
-    var loading by remember {
+    var tgjuLoading by remember {
         mutableStateOf(true)
     }
 
-    var error by remember {
+    var tgjuError by remember {
         mutableStateOf<String?>(null)
     }
 
-    val repository = remember {
+    var talineQuote by remember {
+        mutableStateOf<TalineGoldQuote?>(null)
+    }
+
+    var talineLoading by remember {
+        mutableStateOf(true)
+    }
+
+    var talineError by remember {
+        mutableStateOf<String?>(null)
+    }
+
+    val tgjuRepository = remember {
         TgjuGoldRepository()
+    }
+
+    val talineRepository = remember {
+        TalineGoldRepository()
     }
 
     LaunchedEffect(Unit) {
         while (true) {
             try {
-                loading = tgjuQuote == null
-                tgjuQuote = repository.getLivePrice()
-                error = null
+                tgjuLoading = tgjuQuote == null
+                tgjuQuote = tgjuRepository.getLivePrice()
+                tgjuError = null
             } catch (e: Exception) {
-                error = e.message ?: "خطا در دریافت قیمت TGJU"
+                tgjuError = e.message ?: "خطا در دریافت قیمت TGJU"
             } finally {
-                loading = false
+                tgjuLoading = false
+            }
+
+            delay(60_000L)
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        while (true) {
+            try {
+                talineLoading = talineQuote == null
+                talineQuote = talineRepository.getLivePrice()
+                talineError = null
+            } catch (e: Exception) {
+                talineError = e.message ?: "خطا در دریافت قیمت طلاین"
+            } finally {
+                talineLoading = false
             }
 
             delay(60_000L)
@@ -79,14 +111,16 @@ fun TgjuGoldPricePanel() {
 
         HorizontalDivider(color = Color(0xFFEAEAEA))
 
+        // TGJU - منبع اصلی
+
         Text(
-            "منبع قیمت: TGJU",
+            "منبع اصلی قیمت: TGJU",
             color = TgjuPanelDarkGold,
             fontSize = 14.sp,
             fontWeight = FontWeight.Bold
         )
 
-        if (loading && tgjuQuote == null) {
+        if (tgjuLoading && tgjuQuote == null) {
             CircularProgressIndicator(color = TgjuPanelDarkGold)
             Text(
                 "در حال دریافت قیمت از TGJU...",
@@ -183,9 +217,71 @@ fun TgjuGoldPricePanel() {
             )
         }
 
-        if (error != null) {
+        if (tgjuError != null) {
             Text(
-                "خطای TGJU: $error",
+                "خطای TGJU: $tgjuError",
+                color = TgjuPanelRed,
+                fontSize = 12.sp
+            )
+        }
+
+        HorizontalDivider(color = Color(0xFFEAEAEA))
+
+        // Taline - منبع مقایسه‌ای
+
+        Text(
+            "منبع مقایسه‌ای: طلاین",
+            color = TgjuPanelDarkGold,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Bold
+        )
+
+        if (talineLoading && talineQuote == null) {
+            CircularProgressIndicator(color = TgjuPanelDarkGold)
+            Text(
+                "در حال دریافت قیمت از طلاین...",
+                color = TgjuPanelTextGray
+            )
+        }
+
+        talineQuote?.let { q ->
+
+            Text(
+                "قیمت خرید: ${
+                    String.format(
+                        Locale.US,
+                        "%,d",
+                        q.buyPriceToman
+                    )
+                } تومان",
+                color = TgjuPanelGreen,
+                fontSize = 19.sp,
+                fontWeight = FontWeight.Bold
+            )
+
+            Text(
+                "قیمت فروش: ${
+                    String.format(
+                        Locale.US,
+                        "%,d",
+                        q.sellPriceToman
+                    )
+                } تومان",
+                color = TgjuPanelRed,
+                fontSize = 19.sp,
+                fontWeight = FontWeight.Bold
+            )
+
+            Text(
+                "زمان دریافت: ${Date(q.receivedAtMillis)}",
+                color = TgjuPanelTextGray,
+                fontSize = 12.sp
+            )
+        }
+
+        if (talineError != null) {
+            Text(
+                "خطای طلاین: $talineError",
                 color = TgjuPanelRed,
                 fontSize = 12.sp
             )
@@ -200,7 +296,7 @@ fun TgjuGoldPricePanel() {
         )
 
         Text(
-            "قیمت‌ها فقط از منبع TGJU دریافت می‌شوند.",
+            "قیمت TGJU مستقل از قیمت مقایسه‌ای طلاین دریافت می‌شود.",
             color = TgjuPanelTextGray,
             fontSize = 11.sp
         )
