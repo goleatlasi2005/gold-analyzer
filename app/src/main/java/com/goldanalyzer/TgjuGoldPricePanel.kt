@@ -209,28 +209,6 @@ fun TgjuGoldPricePanel() {
             }
         }
 
-        SourceDrawer(
-            title = "مثقال",
-            subtitle = "در انتظار اتصال منبع قیمت",
-            expanded = false,
-            onClick = {},
-            enabled = false
-        ) {
-            Text(
-                "اتصال مثقال هنوز فعال نشده است.",
-                color = TgjuPanelTextGray,
-                fontSize = 13.sp
-            )
-        }
-
-        Text(
-            "به‌روزرسانی خودکار هر ۶۰ ثانیه",
-            color = TgjuPanelTextGray,
-            fontSize = 11.sp
-        )
-    }
-}
-
 @Composable
 private fun SourceDrawer(
     title: String,
