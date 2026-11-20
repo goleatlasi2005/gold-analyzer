@@ -270,7 +270,8 @@ suspend fun refreshSelectedMarket() {
     tgjuPanelRefreshKey++
     priceError = null
             }
-
+        }
+    }
 // به‌روزرسانی قیمت مستقل از نمودار  
 LaunchedEffect(selectedMarket) {  
     priceError = null  
