@@ -727,7 +727,7 @@ MaterialTheme {
         TgjuGoldPricePanel()
     }
                         }
-
+                    }
                     if (priceError != null) {  
                         Text(  
                             "پیام: $priceError",  
