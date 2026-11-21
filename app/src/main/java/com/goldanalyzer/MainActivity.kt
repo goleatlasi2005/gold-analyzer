@@ -1237,19 +1237,33 @@ if (selectedMarket != "طلای ۱۸ عیار") {
                     }  
                 }  
             ) {  
-                if (selectedMarket != "صندوق طلای عیار") {  
-                    Text(  
-                        "این بخش فعلاً برای صندوق طلای عیار فعال است.",  
-                        color = TextGray  
-                    )  
-                } else {  
-                    CombinedPeriodContent(  
-                        period = mediumTermCombined,  
-                        loading = mediumTermCombinedLoading,  
-                        error = mediumTermCombinedError,  
-                        primaryTimeframeLabel = "روزانه"  
-                    )  
-                }  
+                when (selectedMarket) {
+    "صندوق طلای عیار" -> {
+        CombinedPeriodContent(
+            period = mediumTermCombined,
+            loading = mediumTermCombinedLoading,
+            error = mediumTermCombinedError,
+            primaryTimeframeLabel = "روزانه"
+        )
+    }
+
+    "انس جهانی طلا" -> {
+        CombinedPeriodContent(
+            period = xauMediumTermCombined,
+            loading = xauMediumTermCombinedLoading,
+            error = xauMediumTermCombinedError,
+            primaryTimeframeLabel = "روزانه",
+            priceInUsd = true
+        )
+    }
+
+    else -> {
+        Text(
+            "سیگنال ترکیبی این بازار هنوز فعال نشده است.",
+            color = TextGray
+        )
+    }
+                }
             }  
 
             ExpandableSection("تحلیل تکنیکال") {  
