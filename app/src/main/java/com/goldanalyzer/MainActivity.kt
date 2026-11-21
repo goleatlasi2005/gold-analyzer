@@ -1512,9 +1512,10 @@ return String.format(Locale.US, "%,.0f ریال", value)
 private fun ExpandableSection(
 title: String,
 onExpanded: (() -> Unit)? = null,
+    initiallyExpanded: Boolean = false,
 content: @Composable ColumnScope.() -> Unit
 ) {
-var expanded by remember { mutableStateOf(false) }
+var expanded by remember { mutableStateOf(initiallyExpanded) }
 
 Card(  
     modifier = Modifier.fillMaxWidth(),  
