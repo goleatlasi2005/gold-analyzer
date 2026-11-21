@@ -1184,6 +1184,7 @@ if (selectedMarket != "طلای ۱۸ عیار") {
                                     }
             }
 }
+if (selectedMarket != "طلای ۱۸ عیار") {
             // سیگنال ترکیبی کوتاه‌مدت  
             ExpandableSection("سیگنال ترکیبی کوتاه‌مدت") {
     when (selectedMarket) {
@@ -1260,7 +1261,7 @@ if (selectedMarket != "طلای ۱۸ عیار") {
     }
                 }
             }  
-
+}
             ExpandableSection("تحلیل تکنیکال") {  
                 if (selectedMarket == "صندوق طلای عیار") {  
                     Text(  
