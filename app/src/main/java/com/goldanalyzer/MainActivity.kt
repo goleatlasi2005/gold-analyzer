@@ -636,44 +636,10 @@ if (selectedMarket != "طلای ۱۸ عیار") {
 
                     when (selectedMarket) {  
                         "انس جهانی طلا" -> {  
-                            if (priceLoading && spotQuote == null) {  
-                                CircularProgressIndicator(color = DarkGold)  
-                                Text("در حال دریافت قیمت...")  
-                            }  
-
-                            spotQuote?.let { q ->  
-                                Text(  
-                                    "قیمت هر اونس به دلار",  
-                                    color = TextGray  
-                                )  
-                                Text(  
-                                    String.format(  
-                                        Locale.US,  
-                                        "%,.2f USD",  
-                                        q.priceUsdPerTroyOunce  
-                                    ),  
-                                    color = DarkGold,  
-                                    fontSize = 27.sp,  
-                                    fontWeight = FontWeight.Bold  
-                                )  
-                                ChangePercentRow(  
-                                    calculatePercentChange(  
-                                        q.priceUsdPerTroyOunce,  
-                                        q.previousDailyCloseUsd  
-                                    )  
-                                )  
-                                Text("منبع: ${q.source}", color = TextGray)  
-                                Text(  
-                                    "زمان قیمت: ${formatTehranTime(q.observedAtMillis)}",  
-                                    color = TextGray  
-                                )  
-                                Text(  
-                                    if (q.isFresh) "داده تازه"  
-                                    else "هشدار: داده تازه نیست",  
-                                    color = if (q.isFresh) Green else Red  
-                                )  
-                          
-                            }  
+                            SpotPriceSourceDrawer(
+    quote = spotQuote,
+    loading = priceLoading
+)
                                                         KitcoSourceDrawer()
                                                         InvestingSourceDrawer()
                         }  
