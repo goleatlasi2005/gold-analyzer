@@ -1471,8 +1471,16 @@ private fun TradingSignalContent(
 signal: TradingSignal,
 candleCount: Int,
 candleTime: Long?,
-oneWayMarket: Boolean = false
+oneWayMarket: Boolean = false,
+priceInUsd: Boolean = false
 ) {
+    val formatPrice: (Double) -> String = { value ->
+    if (priceInUsd) {
+        String.format(Locale.US, "%,.2f USD", value)
+    } else {
+        formatRial(value)
+    }
+    }
 val signalColor = when (signal.type) {
 SignalType.BUY -> Green
 SignalType.SELL -> Red
@@ -1537,7 +1545,7 @@ Card(
 
         if (oneWayMarket && signal.type == SignalType.SELL) {  
             Text(  
-                "قیمت مرجع فروش: ${formatRial(signal.entryPrice)}",  
+                "قیمت مرجع فروش: ${formatPrice(signal.entryPrice)}",  
                 color = TextDark,  
                 fontWeight = FontWeight.Bold  
             )  
@@ -1549,7 +1557,7 @@ Card(
             )  
         } else {  
             Text(  
-                "قیمت مرجع ورود: ${formatRial(signal.entryPrice)}",  
+                "قیمت مرجع ورود: ${formatPrice(signal.entryPrice)}",  
                 color = TextDark,  
                 fontWeight = FontWeight.Bold  
             )  
@@ -1557,22 +1565,22 @@ Card(
 
         if (signal.type == SignalType.BUY) {  
             Text(  
-                "حد ضرر: ${formatRial(signal.stopLoss)}",  
+                "حد ضرر: ${formatPrice(signal.stopLoss)}",  
                 color = Red  
             )  
 
             Text(  
-                "حد سود اول: ${formatRial(signal.takeProfit1)}",  
+                "حد سود اول: ${formatPrice(signal.takeProfit1)}",  
                 color = Green  
             )  
 
             Text(  
-                "حد سود دوم: ${formatRial(signal.takeProfit2)}",  
+                "حد سود دوم: ${formatPrice(signal.takeProfit2)}",  
                 color = Green  
             )  
 
             Text(  
-                "حد سود سوم: ${formatRial(signal.takeProfit3)}",  
+                "حد سود سوم: ${formatPrice(signal.takeProfit3)}",  
                 color = Green  
             )  
 
