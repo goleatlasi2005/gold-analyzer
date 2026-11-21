@@ -523,7 +523,11 @@ val activeTimeframeAnalysis =
     selectedTimeframeAnalysis?.takeIf {  
         it.intervalMinutes == intervalMinutes.takeIf { value -> value > 0 }  
     }  
-
+// نتیجه تحلیل انس در تایم‌فریم انتخاب‌شده
+val activeXauTimeframeAnalysis =
+    xauTimeframeAnalysis?.takeIf {
+        it.intervalMinutes == intervalMinutes.takeIf { value -> value > 0 }
+    }
 // سیگنال اختصاصی و ترکیبی هر دو از همین نتیجه تحلیل استفاده می‌کنند.  
 val tradingSignal = if (selectedMarket == "صندوق طلای عیار") {  
     activeTimeframeAnalysis?.signal  
