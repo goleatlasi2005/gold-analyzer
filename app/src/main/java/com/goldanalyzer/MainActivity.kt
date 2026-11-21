@@ -1603,3 +1603,97 @@ val date = String.format(
 return "$date ${formatter.format(Date(timestamp))}"
 
 }
+@Composable
+private fun SpotPriceSourceDrawer(
+    quote: GoldSpotQuote?,
+    loading: Boolean
+) {
+    var expanded by remember { mutableStateOf(true) }
+
+    Card(
+        onClick = { expanded = !expanded },
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = Color.White
+        ),
+        border = BorderStroke(1.dp, Color(0xFFE9DFCA))
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text(
+                        "منبع اصلی: قیمت ربات",
+                        color = TextDark,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        "قیمت اصلی انس جهانی",
+                        color = TextGray,
+                        fontSize = 12.sp
+                    )
+                }
+
+                Text(
+                    if (expanded) "⌃" else "⌄",
+                    color = DarkGold,
+                    fontSize = 22.sp
+                )
+            }
+
+            if (expanded) {
+                HorizontalDivider(color = Color(0xFFE9DFCA))
+
+                if (loading && quote == null) {
+                    CircularProgressIndicator(color = DarkGold)
+                    Text("در حال دریافت قیمت...")
+                }
+
+                quote?.let { q ->
+                    Text(
+                        "قیمت هر اونس به دلار",
+                        color = TextGray
+                    )
+
+                    Text(
+                        String.format(
+                            Locale.US,
+                            "%,.2f USD",
+                            q.priceUsdPerTroyOunce
+                        ),
+                        color = DarkGold,
+                        fontSize = 27.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+
+                    ChangePercentRow(
+                        calculatePercentChange(
+                            q.priceUsdPerTroyOunce,
+                            q.previousDailyCloseUsd
+                        )
+                    )
+
+                    Text("منبع: ${q.source}", color = TextGray)
+
+                    Text(
+                        "زمان قیمت: ${formatTehranTime(q.observedAtMillis)}",
+                        color = TextGray
+                    )
+
+                    Text(
+                        if (q.isFresh) "داده تازه"
+                        else "هشدار: داده تازه نیست",
+                        color = if (q.isFresh) Green else Red
+                    )
+                }
+            }
+        }
+    }
+}
