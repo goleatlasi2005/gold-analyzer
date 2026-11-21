@@ -724,11 +724,49 @@ if (selectedMarket != "طلای ۱۸ عیار") {
                             }  
                         }  
 
-                        else -> {
+                        "مظنه طلا" -> {
+    if (priceLoading && mesghalQuote == null) {
+        CircularProgressIndicator(color = DarkGold)
+        Text("در حال دریافت قیمت مظنه...")
+    }
+
+    mesghalQuote?.let { q ->
+        Text("قیمت مظنه طلا")
+        Text(
+            String.format(
+                Locale.US,
+                "%,.0f ریال",
+                q.currentPriceRial
+            ),
+            color = DarkGold,
+            fontSize = 27.sp,
+            fontWeight = FontWeight.Bold
+        )
+        Text(
+            "تغییر: ${String.format(Locale.US, "%,.0f", q.changeRial)} ریال",
+            color = TextGray
+        )
+        Text(
+            "درصد تغییر: ${q.changePercent}٪",
+            color = TextGray
+        )
+        Text("منبع: TGJU", color = TextGray)
+        Text(
+            if (q.isFresh) "داده تازه" else "هشدار: داده تازه نیست",
+            color = if (q.isFresh) Green else Red
+        )
+    }
+
+    if (mesghalQuote == null && !priceLoading) {
+        Text("قیمت مظنه دریافت نشده است.", color = Red)
+    }
+}
+
+else -> {
     key(tgjuPanelRefreshKey) {
         TgjuGoldPricePanel()
     }
-                        }
+}
                     }
                     if (priceError != null) {  
                         Text(  
