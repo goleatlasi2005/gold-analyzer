@@ -30,6 +30,25 @@ class MesghalRepository(
     private val httpClient: OkHttpClient = OkHttpClient()
 ) {
 
+    suspend fun getLivePrices(): MesghalPrices {
+        val tgjuPrice = try {
+            getLivePrice()
+        } catch (e: Exception) {
+            null
+        }
+
+        val nerkhAraPrice = try {
+            getNerkhAraPrice()
+        } catch (e: Exception) {
+            null
+        }
+
+        return MesghalPrices(
+            tgju = tgjuPrice,
+            nerkhAra = nerkhAraPrice
+        )
+    }
+
     suspend fun getLivePrice(): MesghalQuote =
         withContext(Dispatchers.IO) {
 
@@ -64,7 +83,6 @@ class MesghalRepository(
                         ?: error("مقدار معتبر برای $key دریافت نشد.")
                 }
 
-                // قیمت‌های مثقال TGJU مستقیماً به ریال هستند.
                 val price = readNumber("p")
                 val high = readNumber("h")
                 val low = readNumber("l")
@@ -105,6 +123,72 @@ class MesghalRepository(
                     observedAtMillis = observedAt,
                     ageSeconds = age.coerceAtLeast(0L),
                     isFresh = age in 0..180
+                )
+            }
+        }
+
+    suspend fun getNerkhAraPrice(): MesghalQuote =
+        withContext(Dispatchers.IO) {
+
+            val request = Request.Builder()
+                .url("https://nerkhara.com/api/v1/latest/gold-mesghal.json")
+                .header("Accept", "application/json")
+                .header("User-Agent", "Mozilla/5.0")
+                .get()
+                .build()
+
+            httpClient.newCall(request).execute().use { response ->
+
+                if (!response.isSuccessful) {
+                    error("خطای دریافت قیمت مظنه از نرخ‌آرا: ${response.code}")
+                }
+
+                val body = response.body?.string()
+                    ?: error("پاسخی از نرخ‌آرا دریافت نشد.")
+
+                val root = JSONObject(body)
+                val item = root.optJSONObject("item")
+                    ?: error("اطلاعات مظنه در نرخ‌آرا پیدا نشد.")
+
+                val priceToman = item.optDouble("price", 0.0)
+
+                if (priceToman <= 0.0) {
+                    error("قیمت دریافتی نرخ‌آرا معتبر نیست.")
+                }
+
+                val changePercent = item.optDouble("change_pct", 0.0)
+                val timestamp = item.optString("updated_utc", "")
+
+                if (timestamp.isBlank()) {
+                    error("زمان ثبت قیمت نرخ‌آرا مشخص نیست.")
+                }
+
+                val formatter = SimpleDateFormat(
+                    "yyyy-MM-dd'T'HH:mm:ss",
+                    Locale.US
+                ).apply {
+                    timeZone = TimeZone.getTimeZone("UTC")
+                    isLenient = false
+                }
+
+                val observedAt = formatter.parse(timestamp)?.time
+                    ?: error("زمان ثبت قیمت نرخ‌آرا قابل پردازش نیست.")
+
+                val age = (
+                    System.currentTimeMillis() - observedAt
+                ) / 1000L
+
+                val stale = item.optBoolean("stale", true)
+
+                MesghalQuote(
+                    currentPriceRial = priceToman * 10.0,
+                    changeRial = 0.0,
+                    changePercent = changePercent,
+                    highRial = 0.0,
+                    lowRial = 0.0,
+                    observedAtMillis = observedAt,
+                    ageSeconds = age.coerceAtLeast(0L),
+                    isFresh = !stale && age in 0..900
                 )
             }
         }
