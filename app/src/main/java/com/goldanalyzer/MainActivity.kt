@@ -133,6 +133,7 @@ val ayiarRepository = remember { AyiarRepository() }
 val ayiarMarketRepository = remember {
     AyiarMarketCandleRepository(ayiarRepository)
 }
+val xauCandleRepository = remember { XauCandleRepository() }
 val mesghalRepository = remember { MesghalRepository() }
 val refreshMutex = remember { Mutex() }  
 val combinedRefreshMutex = remember { Mutex() }  
