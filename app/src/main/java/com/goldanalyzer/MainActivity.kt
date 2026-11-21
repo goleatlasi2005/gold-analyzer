@@ -1228,7 +1228,11 @@ if (selectedMarket != "طلای ۱۸ عیار") {
     selectedMarket == "انس جهانی طلا"
 ) {  
                         scope.launch {  
-                            refreshMediumTermCombined()  
+                            if (selectedMarket == "صندوق طلای عیار") {
+    refreshMediumTermCombined()
+} else if (selectedMarket == "انس جهانی طلا") {
+    refreshXauMediumTermCombined()
+                            }
                         }  
                     }  
                 }  
