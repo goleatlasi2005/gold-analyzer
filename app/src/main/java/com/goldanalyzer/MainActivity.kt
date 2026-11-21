@@ -270,7 +270,24 @@ suspend fun refreshShortTermCombined() {
         }  
     }  
 }  
+suspend fun refreshXauShortTermCombined() {
+    combinedRefreshMutex.withLock {
+        xauShortTermCombinedLoading = true
+        xauShortTermCombinedError = null
 
+        try {
+            xauShortTermCombined =
+                CombinedSignalCoordinator.loadShortTerm(
+                    repository = xauCandleRepository
+                )
+        } catch (e: Exception) {
+            xauShortTermCombinedError =
+                e.message ?: "خطا در محاسبه سیگنال کوتاه‌مدت انس"
+        } finally {
+            xauShortTermCombinedLoading = false
+        }
+    }
+}
 suspend fun refreshMediumTermCombined() {  
     combinedRefreshMutex.withLock {  
         mediumTermCombinedLoading = true  
