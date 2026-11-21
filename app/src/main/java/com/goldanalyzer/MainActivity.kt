@@ -341,7 +341,8 @@ LaunchedEffect(selectedMarket) {
                 refreshMutex.withLock {
                     priceLoading = mesghalQuote == null
                     try {
-                        mesghalQuote = mesghalRepository.getLivePrice()
+                        mesghalPrices = mesghalRepository.getLivePrices()
+mesghalQuote = mesghalPrices?.tgju
                         priceError = null
                     } catch (e: Exception) {
                         priceError = e.message ?: "خطا در دریافت قیمت مظنه"
