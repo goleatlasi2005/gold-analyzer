@@ -1591,7 +1591,8 @@ private fun CombinedPeriodContent(
 period: CombinedPeriodResult?,
 loading: Boolean,
 error: String?,
-primaryTimeframeLabel: String
+primaryTimeframeLabel: String,
+priceInUsd: Boolean = false
 ) {
 if (period == null) {
 if (loading) {
