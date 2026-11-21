@@ -318,7 +318,24 @@ suspend fun refreshMediumTermCombined() {
         }  
     }  
 }  
+suspend fun refreshXauMediumTermCombined() {
+    combinedRefreshMutex.withLock {
+        xauMediumTermCombinedLoading = true
+        xauMediumTermCombinedError = null
 
+        try {
+            xauMediumTermCombined =
+                CombinedSignalCoordinator.loadMediumTerm(
+                    repository = xauCandleRepository
+                )
+        } catch (e: Exception) {
+            xauMediumTermCombinedError =
+                e.message ?: "خطا در محاسبه سیگنال میان‌مدت انس"
+        } finally {
+            xauMediumTermCombinedLoading = false
+        }
+    }
+}
 suspend fun refreshSelectedMarket() {  
     refreshMutex.withLock {  
         priceError = null  
