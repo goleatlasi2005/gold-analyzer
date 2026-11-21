@@ -66,7 +66,9 @@ var spotQuote by remember {
 var ayiarQuote by remember {  
     mutableStateOf<AyiarQuote?>(null)  
 }  
-
+var mesghalQuote by remember {
+    mutableStateOf<MesghalQuote?>(null)
+}
 var ayiarCandles by remember {  
     mutableStateOf<CandleSeries?>(null)  
 }  
@@ -125,6 +127,7 @@ var mediumTermCombinedError by remember {
 
 val goldRepository = remember { GoldSpotRepository() }  
 val ayiarRepository = remember { AyiarRepository() }  
+val mesghalRepository = remember { MesghalRepository() }
 val refreshMutex = remember { Mutex() }  
 val combinedRefreshMutex = remember { Mutex() }  
 val scope = rememberCoroutineScope()  
