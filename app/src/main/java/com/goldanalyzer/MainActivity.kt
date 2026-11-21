@@ -389,29 +389,37 @@ mesghalQuote = mesghalPrices?.tgju
     }
 }
 // به‌روزرسانی نمودار متناسب با تایم‌فریم  
-LaunchedEffect(selectedMarket, selectedTimeframe) {  
-    chartError = null  
+LaunchedEffect(selectedMarket, selectedTimeframe) {
+    chartError = null
 
-    if (selectedMarket == "صندوق طلای عیار") {  
-        refreshMutex.withLock {  
-            loadAyiarChart()  
-        }  
+    if (selectedMarket == "صندوق طلای عیار") {
+        refreshMutex.withLock {
+            loadAyiarChart()
+        }
 
-        while (true) {  
-            if (isAyiarMarketOpen()) {  
-                delay(chartRefreshIntervalMillis(intervalMinutes))  
+        while (true) {
+            if (isAyiarMarketOpen()) {
+                delay(chartRefreshIntervalMillis(intervalMinutes))
 
-                if (isAyiarMarketOpen()) {  
-                    refreshMutex.withLock {  
-                        loadAyiarChart()  
-                    }  
-                }  
-            } else {  
-                delay(60_000L)  
-            }  
-        }  
-    }  
-}  
+                if (isAyiarMarketOpen()) {
+                    refreshMutex.withLock {
+                        loadAyiarChart()
+                    }
+                }
+            } else {
+                delay(60_000L)
+            }
+        }
+    } else if (selectedMarket == "انس جهانی طلا") {
+        while (true) {
+            refreshMutex.withLock {
+                loadXauChart()
+            }
+
+            delay(chartRefreshIntervalMillis(intervalMinutes))
+        }
+    }
+}
 
 // تحلیل اختصاصی تایم‌فریم انتخاب‌شده از همان Store مشترک با سیگنال ترکیبی  
 LaunchedEffect(selectedMarket, selectedTimeframe) {  
