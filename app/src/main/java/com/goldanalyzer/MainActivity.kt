@@ -534,7 +534,13 @@ val tradingSignal = if (selectedMarket == "صندوق طلای عیار") {
 } else {  
     null  
 }  
-
+// سیگنال اختصاصی انس جهانی
+val xauTradingSignal =
+    if (selectedMarket == "انس جهانی طلا") {
+        activeXauTimeframeAnalysis?.signal
+    } else {
+        null
+    }
 // محاسبه حمایت و مقاومت استاتیک و داینامیک  
 val supportResistanceLevels = remember(  
     ayiarCandles,  
