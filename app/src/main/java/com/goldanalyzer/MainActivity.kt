@@ -1231,6 +1231,19 @@ if (selectedMarket != "طلای ۱۸ عیار") {
                             color = TextGray  
                         )  
                     }                  } else if (selectedMarket == "انس جهانی طلا") {
+                    val xauCloses = completedXauCandles.map { it.close }
+
+val xauRsi = remember(completedXauCandles) {
+    TechnicalIndicators.rsi(xauCloses).lastOrNull()
+}
+
+val xauMacd = remember(completedXauCandles) {
+    TechnicalIndicators.macd(xauCloses).lastOrNull()
+}
+
+val xauBollinger = remember(completedXauCandles) {
+    TechnicalIndicators.bollingerBands(xauCloses).lastOrNull()
+}
                     Text(
                         "تایم‌فریم: $selectedTimeframe",
                         color = DarkGold,
