@@ -628,10 +628,12 @@ if (selectedMarket != "طلای ۱۸ عیار") {
                         fontWeight = FontWeight.Bold  
                     )  
 
-                    Text(  
-                        "تایم‌فریم: $selectedTimeframe",  
-                        color = TextGray  
-                    )  
+                    if (selectedMarket != "طلای ۱۸ عیار") {
+    Text(
+        "تایم‌فریم: $selectedTimeframe",
+        color = TextGray
+    )
+                    }
 
                     HorizontalDivider(color = Color(0xFFEAEAEA))  
 
