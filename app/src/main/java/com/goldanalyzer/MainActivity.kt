@@ -134,7 +134,8 @@ val scope = rememberCoroutineScope()
 
 val markets = listOf(  
     "طلای ۱۸ عیار",  
-    "صندوق طلای عیار",  
+    "صندوق طلای عیار",
+    "مظنه طلا",
     "انس جهانی طلا"  
 )  
 
