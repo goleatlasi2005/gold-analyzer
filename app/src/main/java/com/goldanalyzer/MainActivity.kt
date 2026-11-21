@@ -94,7 +94,18 @@ var selectedAnalysisLoading by remember {
 var selectedAnalysisError by remember {  
     mutableStateOf<String?>(null)  
 }  
+// وضعیت تحلیل اختصاصی انس جهانی
+var xauTimeframeAnalysis by remember {
+    mutableStateOf<TimeframeAnalysis?>(null)
+}
 
+var xauAnalysisLoading by remember {
+    mutableStateOf(false)
+}
+
+var xauAnalysisError by remember {
+    mutableStateOf<String?>(null)
+}
 var priceLoading by remember { mutableStateOf(false) }  
 var chartLoading by remember { mutableStateOf(false) }  
 var refreshing by remember { mutableStateOf(false) }  
@@ -421,39 +432,63 @@ LaunchedEffect(selectedMarket, selectedTimeframe) {
     }
 }
 
-// تحلیل اختصاصی تایم‌فریم انتخاب‌شده از همان Store مشترک با سیگنال ترکیبی  
-LaunchedEffect(selectedMarket, selectedTimeframe) {  
-    if (selectedMarket == "صندوق طلای عیار") {  
-        while (true) {  
-            selectedAnalysisLoading = true  
-            selectedAnalysisError = null  
 
-            try {  
-                selectedTimeframeAnalysis =  
-                    TimeframeAnalysisStore.getAnalysis(  
-                        repository = ayiarMarketRepository,  
-                        intervalMinutes = intervalMinutes.takeIf { it > 0 }  
-                    )  
-            } catch (e: kotlinx.coroutines.CancellationException) {  
-                throw e  
-            } catch (e: Exception) {  
-                selectedAnalysisError =  
-                    e.message ?: "خطا در تحلیل تایم‌فریم انتخاب‌شده"  
-                selectedTimeframeAnalysis = null  
-            } finally {  
-                selectedAnalysisLoading = false  
-            }  
+// تحلیل اختصاصی تایم‌فریم انتخاب‌شده
+LaunchedEffect(selectedMarket, selectedTimeframe) {
+    if (selectedMarket == "صندوق طلای عیار") {
+        while (true) {
+            selectedAnalysisLoading = true
+            selectedAnalysisError = null
 
-            delay(  
-                if (isAyiarMarketOpen()) {  
-                    chartRefreshIntervalMillis(intervalMinutes)  
-                } else {  
-                    60 * 60 * 1000L  
-                }  
-            )  
-        }  
-    }  
-}  
+            try {
+                selectedTimeframeAnalysis =
+                    TimeframeAnalysisStore.getAnalysis(
+                        repository = ayiarMarketRepository,
+                        intervalMinutes = intervalMinutes.takeIf { it > 0 }
+                    )
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                selectedAnalysisError =
+                    e.message ?: "خطا در تحلیل تایم‌فریم انتخاب‌شده"
+                selectedTimeframeAnalysis = null
+            } finally {
+                selectedAnalysisLoading = false
+            }
+
+            delay(
+                if (isAyiarMarketOpen()) {
+                    chartRefreshIntervalMillis(intervalMinutes)
+                } else {
+                    60 * 60 * 1000L
+                }
+            )
+        }
+    } else if (selectedMarket == "انس جهانی طلا") {
+        while (true) {
+            xauAnalysisLoading = true
+            xauAnalysisError = null
+
+            try {
+                xauTimeframeAnalysis =
+                    TimeframeAnalysisStore.getAnalysis(
+                        repository = xauCandleRepository,
+                        intervalMinutes = intervalMinutes.takeIf { it > 0 }
+                    )
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                xauAnalysisError =
+                    e.message ?: "خطا در تحلیل تایم‌فریم انس"
+                xauTimeframeAnalysis = null
+            } finally {
+                xauAnalysisLoading = false
+            }
+
+            delay(chartRefreshIntervalMillis(intervalMinutes))
+        }
+    }
+}
 
 // دریافت اولیه و به‌روزرسانی سیگنال ترکیبی کوتاه‌مدت  
 LaunchedEffect(selectedMarket) {  
