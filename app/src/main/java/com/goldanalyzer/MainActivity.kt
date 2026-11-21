@@ -729,42 +729,84 @@ if (selectedMarket != "طلای ۱۸ عیار") {
                         }  
 
                         "مظنه طلا" -> {
-    if (priceLoading && mesghalQuote == null) {
+    
+    if (priceLoading && mesghalPrices == null) {
         CircularProgressIndicator(color = DarkGold)
-        Text("در حال دریافت قیمت مظنه...")
+        Text("در حال دریافت قیمت از هر دو منبع...")
     }
 
-    mesghalQuote?.let { q ->
-        Text("قیمت مظنه طلا")
+    val tgju = mesghalPrices?.tgju
+    val ara = mesghalPrices?.nerkhAra
+
+    Text("قیمت مظنه طلا")
+
+    Text("منبع اصلی: TGJU", fontWeight = FontWeight.Bold)
+
+    if (tgju != null) {
         Text(
-            String.format(
-                Locale.US,
-                "%,.0f ریال",
-                q.currentPriceRial
-            ),
+            String.format(Locale.US, "%,.0f ریال", tgju.currentPriceRial),
             color = DarkGold,
-            fontSize = 27.sp,
+            fontSize = 25.sp,
             fontWeight = FontWeight.Bold
         )
+        Text("درصد تغییر: ${tgju.changePercent}٪", color = TextGray)
         Text(
-            "تغییر: ${String.format(Locale.US, "%,.0f", q.changeRial)} ریال",
-            color = TextGray
+            if (tgju.isFresh) "داده تازه" else "هشدار: داده تازه نیست",
+            color = if (tgju.isFresh) Green else Red
         )
+    } else {
+        Text("قیمت TGJU دریافت نشد.", color = Red)
+    }
+
+    Spacer(modifier = Modifier.height(12.dp))
+
+    Text("منبع دوم: نرخ‌آرا", fontWeight = FontWeight.Bold)
+
+    if (ara != null) {
         Text(
-            "درصد تغییر: ${q.changePercent}٪",
-            color = TextGray
+            String.format(Locale.US, "%,.0f ریال", ara.currentPriceRial),
+            color = DarkGold,
+            fontSize = 25.sp,
+            fontWeight = FontWeight.Bold
         )
-        Text("منبع: TGJU", color = TextGray)
+        Text("درصد تغییر: ${ara.changePercent}٪", color = TextGray)
         Text(
-            if (q.isFresh) "داده تازه" else "هشدار: داده تازه نیست",
-            color = if (q.isFresh) Green else Red
+            if (ara.isFresh) "داده تازه" else "هشدار: داده تازه نیست",
+            color = if (ara.isFresh) Green else Red
+        )
+    } else {
+        Text("قیمت نرخ‌آرا دریافت نشد.", color = Red)
+    }
+
+    if (tgju != null && ara != null) {
+        val difference = kotlin.math.abs(
+            tgju.currentPriceRial - ara.currentPriceRial
+        )
+
+        val differencePercent =
+            difference / tgju.currentPriceRial * 100.0
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        Text(
+            "اختلاف دو منبع: ${
+                String.format(Locale.US, "%,.0f", difference)
+            } ریال",
+            fontWeight = FontWeight.Bold,
+            color = TextDark
+        )
+
+        Text(
+            "اختلاف درصدی: ${
+                String.format(Locale.US, "%.2f", differencePercent)
+            }٪",
+            color = TextGray
         )
     }
 
-    if (mesghalQuote == null && !priceLoading) {
-        Text("قیمت مظنه دریافت نشده است.", color = Red)
+    if (mesghalPrices == null && !priceLoading) {
+        Text("قیمت مظنه از هیچ‌کدام از منابع دریافت نشد.", color = Red)
     }
-}
 
 else -> {
     key(tgjuPanelRefreshKey) {
