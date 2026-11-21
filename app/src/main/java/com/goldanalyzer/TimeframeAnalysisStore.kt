@@ -3,8 +3,6 @@ package com.goldanalyzer
 
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import java.time.LocalDate
-import java.time.ZoneId
 import java.util.concurrent.ConcurrentHashMap
 
 data class TimeframeAnalysis(
@@ -21,8 +19,6 @@ data class TimeframeAnalysis(
 
 object TimeframeAnalysisStore {
 
-    private val tehranZone = ZoneId.of("Asia/Tehran")
-
     private val cache =
         ConcurrentHashMap<String, TimeframeAnalysis>()
 
@@ -30,13 +26,15 @@ object TimeframeAnalysisStore {
         ConcurrentHashMap<String, Mutex>()
 
     suspend fun getAnalysis(
-        repository: AyiarRepository,
+        repository: MarketCandleRepository,
         intervalMinutes: Int?,
         nowMillis: Long = System.currentTimeMillis(),
         forceRefresh: Boolean = false
     ): TimeframeAnalysis {
 
-        val key = intervalMinutes?.toString() ?: "daily"
+        val timeframeKey = intervalMinutes?.toString() ?: "daily"
+        val sourceKey = repository.javaClass.name
+        val key = "${sourceKey}_$timeframeKey"
 
         val mutex = locks.getOrPut(key) { Mutex() }
 
@@ -54,11 +52,14 @@ object TimeframeAnalysisStore {
             }
 
             val series = if (intervalMinutes == null) {
-                repository.getDailyCandles(500)
+                repository.getDailyCandles(
+                    count = 500,
+                    forceRefresh = forceRefresh
+                )
             } else {
                 repository.getCandles(
-                    date = LocalDate.now(tehranZone),
-                    intervalMinutes = intervalMinutes
+                    intervalMinutes = intervalMinutes,
+                    forceRefresh = forceRefresh
                 )
             }
 
@@ -98,7 +99,12 @@ object TimeframeAnalysisStore {
         if (intervalMinutes == null) {
             cache.clear()
         } else {
-            cache.remove(intervalMinutes.toString())
+            val suffix = "_${intervalMinutes}"
+            cache.keys.removeAll { it.endsWith(suffix) }
+
+            if (intervalMinutes == 0) {
+                cache.keys.removeAll { it.endsWith("_daily") }
+            }
         }
     }
 
