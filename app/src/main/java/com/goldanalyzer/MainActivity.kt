@@ -990,80 +990,75 @@ else -> {
                         )  
                     }  
                 }  
-            }  
+            }
+            
+if (selectedMarket != "طلای ۱۸ عیار") {
+    ExpandableSection("نمودار قیمت") {
+        when (selectedMarket) {
+            "صندوق طلای عیار" -> {
+                val candles = ayiarCandles?.candles.orEmpty()
 
-            ExpandableSection("نمودار قیمت") {  
-                when (selectedMarket) {  
-                    "صندوق طلای عیار" -> {  
-                        val candles = ayiarCandles?.candles.orEmpty()  
-
-                        if (candles.isNotEmpty()) {  
-                            Text(  
-                                "تعداد کندل‌ها: ${candles.size}",  
-                                color = TextGray  
-                            )  
-                            CandlestickChart(  
-                                candles = candles,  
-                                modifier = Modifier.fillMaxWidth()  
-                            )  
-                            if (chartError != null) {  
-                                Text(  
-                                    "به‌روزرسانی نمودار ناموفق بود؛ " +  
-                                        "نمودار قبلی نمایش داده می‌شود.",  
-                                    color = TextGray  
-                                )  
-                            }  
-                        } else if (chartLoading) {  
-                            CircularProgressIndicator(color = DarkGold)  
-                            Text("در حال دریافت نمودار...")  
-                        } else {  
-                            Text(  
-                                chartError  
-                                    ?: "نموداری برای نمایش موجود نیست.",  
-                                color = TextGray  
-                            )  
-                        }  
-                    }  
-
-                    "انس جهانی طلا" -> {
-    val candles = xauCandles?.candles.orEmpty()
-
-    if (candles.isNotEmpty()) {
-        Text(
-            "تعداد کندل‌ها: ${candles.size}",
-            color = TextGray
-        )
-
-        CandlestickChart(
-            candles = candles,
-            modifier = Modifier.fillMaxWidth()
-        )
-
-        if (chartError != null) {
-            Text(
-                "به‌روزرسانی نمودار ناموفق بود؛ نمودار قبلی نمایش داده می‌شود.",
-                color = TextGray
-            )
-        }
-    } else if (chartLoading) {
-        CircularProgressIndicator(color = DarkGold)
-        Text("در حال دریافت نمودار انس...")
-    } else {
-        Text(
-            chartError ?: "نمودار انس برای نمایش دریافت نشده است.",
-            color = TextGray
-        )
-    }
+                if (candles.isNotEmpty()) {
+                    Text(
+                        "تعداد کندل‌ها: ${candles.size}",
+                        color = TextGray
+                    )
+                    CandlestickChart(
+                        candles = candles,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    if (chartError != null) {
+                        Text(
+                            "به‌روزرسانی نمودار ناموفق بود؛ " +
+                                "نمودار قبلی نمایش داده می‌شود.",
+                            color = TextGray
+                        )
                     }
+                } else if (chartLoading) {
+                    CircularProgressIndicator(color = DarkGold)
+                    Text("در حال دریافت نمودار...")
+                } else {
+                    Text(
+                        chartError
+                            ?: "نموداری برای نمایش موجود نیست.",
+                        color = TextGray
+                    )
+                }
+            }
 
-                    else -> {  
-                        Text(  
-                            "پس از اتصال منبع قیمت طلای ۱۸ عیار، نمودار این بازار فعال می‌شود.",  
-                            color = TextGray  
-                        )  
-                    }  
-                }  
-            }  
+            "انس جهانی طلا" -> {
+                val candles = xauCandles?.candles.orEmpty()
+
+                if (candles.isNotEmpty()) {
+                    Text(
+                        "تعداد کندل‌ها: ${candles.size}",
+                        color = TextGray
+                    )
+
+                    CandlestickChart(
+                        candles = candles,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    if (chartError != null) {
+                        Text(
+                            "به‌روزرسانی نمودار ناموفق بود؛ نمودار قبلی نمایش داده می‌شود.",
+                            color = TextGray
+                        )
+                    }
+                } else if (chartLoading) {
+                    CircularProgressIndicator(color = DarkGold)
+                    Text("در حال دریافت نمودار انس...")
+                } else {
+                    Text(
+                        chartError ?: "نمودار انس برای نمایش دریافت نشده است.",
+                        color = TextGray
+                    )
+                }
+            }
+        }
+    }
+}
 if (selectedMarket != "طلای ۱۸ عیار") {
             ExpandableSection("سیگنال معاملاتی") {  
                 when (selectedMarket) {  
