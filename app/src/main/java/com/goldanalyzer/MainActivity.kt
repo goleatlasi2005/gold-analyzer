@@ -804,9 +804,10 @@ if (selectedMarket != "طلای ۱۸ عیار") {
         )
     }
 
-    if (mesghalPrices == null && !priceLoading) {
+        if (mesghalPrices == null && !priceLoading) {
         Text("قیمت مظنه از هیچ‌کدام از منابع دریافت نشد.", color = Red)
     }
+}
 
 else -> {
     key(tgjuPanelRefreshKey) {
