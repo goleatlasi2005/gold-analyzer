@@ -533,6 +533,12 @@ LaunchedEffect(selectedMarket) {
             )  
         }  
     }  
+    else if (selectedMarket == "انس جهانی طلا") {
+        while (true) {
+            refreshXauShortTermCombined()
+            delay(5 * 60 * 1000L)
+        }
+    }
 }
 val ayiarPercent = ayiarQuote?.let {  
     calculatePercentChange(it.currentPrice, it.previousClose)  
