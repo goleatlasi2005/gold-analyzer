@@ -75,7 +75,9 @@ var mesghalPrices by remember {
 var ayiarCandles by remember {  
     mutableStateOf<CandleSeries?>(null)  
 }  
-
+var xauCandles by remember {
+    mutableStateOf<CandleSeries?>(null)
+}
 var ayiarDailyCandles by remember {  
     mutableStateOf<CandleSeries?>(null)  
 }  
