@@ -1334,7 +1334,6 @@ if (xauBollinger != null) {
 }
 
 HorizontalDivider(color = Color(0xFFEAEAEA))
-                        HorizontalDivider(color = Color(0xFFEAEAEA))
 
                         Text(
                             "دلایل تحلیل:",
