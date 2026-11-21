@@ -129,7 +129,10 @@ var mediumTermCombinedError by remember {
 }  
 
 val goldRepository = remember { GoldSpotRepository() }  
-val ayiarRepository = remember { AyiarRepository() }  
+val ayiarRepository = remember { AyiarRepository() }
+val ayiarMarketRepository = remember {
+    AyiarMarketCandleRepository(ayiarRepository)
+}
 val mesghalRepository = remember { MesghalRepository() }
 val refreshMutex = remember { Mutex() }  
 val combinedRefreshMutex = remember { Mutex() }  
@@ -209,7 +212,7 @@ suspend fun refreshShortTermCombined() {
         try {  
             shortTermCombined =  
                 CombinedSignalCoordinator.loadShortTerm(  
-                    repository = ayiarRepository  
+                    repository = ayiarMarketRepository,  
                 )  
         } catch (e: Exception) {  
             shortTermCombinedError =  
@@ -228,7 +231,7 @@ suspend fun refreshMediumTermCombined() {
         try {  
             mediumTermCombined =  
                 CombinedSignalCoordinator.loadMediumTerm(  
-                    repository = ayiarRepository  
+                    repository = ayiarMarketRepository,
                 )  
         } catch (e: Exception) {  
             mediumTermCombinedError =  
@@ -394,7 +397,7 @@ LaunchedEffect(selectedMarket, selectedTimeframe) {
             try {  
                 selectedTimeframeAnalysis =  
                     TimeframeAnalysisStore.getAnalysis(  
-                        repository = ayiarRepository,  
+                        repository = ayiarMarketRepository,  
                         intervalMinutes = intervalMinutes.takeIf { it > 0 }  
                     )  
             } catch (e: kotlinx.coroutines.CancellationException) {  
