@@ -1224,7 +1224,9 @@ if (selectedMarket != "طلای ۱۸ عیار") {
             ExpandableSection(  
                 title = "سیگنال ترکیبی میان‌مدت",  
                 onExpanded = {  
-                    if (selectedMarket == "صندوق طلای عیار") {  
+                    if (selectedMarket == "صندوق طلای عیار" ||
+    selectedMarket == "انس جهانی طلا"
+) {  
                         scope.launch {  
                             refreshMediumTermCombined()  
                         }  
