@@ -1161,21 +1161,34 @@ if (selectedMarket != "طلای ۱۸ عیار") {
             }
 }
             // سیگنال ترکیبی کوتاه‌مدت  
-            ExpandableSection("سیگنال ترکیبی کوتاه‌مدت") {  
-                if (selectedMarket != "صندوق طلای عیار") {  
-                    Text(  
-                        "این بخش فعلاً برای صندوق طلای عیار فعال است.",  
-                        color = TextGray  
-                    )  
-                } else {  
-                    CombinedPeriodContent(  
-                        period = shortTermCombined,  
-                        loading = shortTermCombinedLoading,  
-                        error = shortTermCombinedError,  
-                        primaryTimeframeLabel = "۳۰ دقیقه"  
-                    )  
-                }  
-            }  
+            ExpandableSection("سیگنال ترکیبی کوتاه‌مدت") {
+    when (selectedMarket) {
+        "صندوق طلای عیار" -> {
+            CombinedPeriodContent(
+                period = shortTermCombined,
+                loading = shortTermCombinedLoading,
+                error = shortTermCombinedError,
+                primaryTimeframeLabel = "۳۰ دقیقه"
+            )
+        }
+
+        "انس جهانی طلا" -> {
+            CombinedPeriodContent(
+                period = xauShortTermCombined,
+                loading = xauShortTermCombinedLoading,
+                error = xauShortTermCombinedError,
+                primaryTimeframeLabel = "۳۰ دقیقه"
+            )
+        }
+
+        else -> {
+            Text(
+                "سیگنال ترکیبی این بازار هنوز فعال نشده است.",
+                color = TextGray
+            )
+        }
+    }
+            }
 
             // سیگنال ترکیبی میان‌مدت  
             ExpandableSection(  
