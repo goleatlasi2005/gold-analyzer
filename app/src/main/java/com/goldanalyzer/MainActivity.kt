@@ -535,28 +535,25 @@ if (selectedMarket != "طلای ۱۸ عیار") {
     )
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        // تمام کد فعلی FilterChipها اینجا باقی می‌ماند
+        timeframes.chunked(3).forEach { group ->
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(7.dp)
+            ) {
+                group.forEach { frame ->
+                    FilterChip(
+                        selected = selectedTimeframe == frame,
+                        onClick = { selectedTimeframe = frame },
+                        label = { Text(frame) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = Color(0xFFFFE8A8),
+                            selectedLabelColor = DarkGold
+                        )
+                    )
+                }
+            }
+        }
     }
 }
-                timeframes.chunked(3).forEach { group ->  
-                    Row(  
-                        horizontalArrangement = Arrangement.spacedBy(7.dp)  
-                    ) {  
-                        group.forEach { frame ->  
-                            FilterChip(  
-                                selected = selectedTimeframe == frame,  
-                                onClick = { selectedTimeframe = frame },  
-                                label = { Text(frame) },  
-                                colors = FilterChipDefaults.filterChipColors(  
-                                    selectedContainerColor =  
-                                        Color(0xFFFFE8A8),  
-                                    selectedLabelColor = DarkGold  
-                                )  
-                            )  
-                        }  
-                    }  
-                }  
-            }  
 
             Button(  
                 onClick = {  
