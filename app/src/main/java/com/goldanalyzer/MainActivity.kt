@@ -127,7 +127,18 @@ var shortTermCombinedLoading by remember {
 var shortTermCombinedError by remember {  
     mutableStateOf<String?>(null)  
 }  
+// وضعیت سیگنال ترکیبی کوتاه‌مدت انس جهانی
+var xauShortTermCombined by remember {
+    mutableStateOf<CombinedPeriodResult?>(null)
+}
 
+var xauShortTermCombinedLoading by remember {
+    mutableStateOf(false)
+}
+
+var xauShortTermCombinedError by remember {
+    mutableStateOf<String?>(null)
+}
 // وضعیت سیگنال ترکیبی میان‌مدت  
 var mediumTermCombined by remember {  
     mutableStateOf<CombinedPeriodResult?>(null)  
