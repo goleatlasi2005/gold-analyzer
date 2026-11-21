@@ -152,7 +152,19 @@ var mediumTermCombinedError by remember {
     mutableStateOf<String?>(null)  
 }  
 
-val goldRepository = remember { GoldSpotRepository() }  
+val goldRepository = remember { GoldSpotRepository() }
+// وضعیت سیگنال ترکیبی میان‌مدت انس جهانی
+var xauMediumTermCombined by remember {
+    mutableStateOf<CombinedPeriodResult?>(null)
+}
+
+var xauMediumTermCombinedLoading by remember {
+    mutableStateOf(false)
+}
+
+var xauMediumTermCombinedError by remember {
+    mutableStateOf<String?>(null)
+}
 val ayiarRepository = remember { AyiarRepository() }
 val ayiarMarketRepository = remember {
     AyiarMarketCandleRepository(ayiarRepository)
