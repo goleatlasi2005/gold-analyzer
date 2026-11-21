@@ -740,8 +740,10 @@ if (selectedMarket != "طلای ۱۸ عیار") {
 
     Text("قیمت مظنه طلا")
 
-    Text("منبع اصلی: TGJU", fontWeight = FontWeight.Bold)
-
+    ExpandableSection(
+    title = "منبع اصلی: TGJU",
+    initiallyExpanded = true
+) {
     if (tgju != null) {
         Text(
             String.format(Locale.US, "%,.0f ریال", tgju.currentPriceRial),
@@ -757,11 +759,12 @@ if (selectedMarket != "طلای ۱۸ عیار") {
     } else {
         Text("قیمت TGJU دریافت نشد.", color = Red)
     }
+}
 
-    Spacer(modifier = Modifier.height(12.dp))
-
-    Text("منبع دوم: نرخ‌آرا", fontWeight = FontWeight.Bold)
-
+ExpandableSection(
+    title = "منبع دوم: نرخ‌آرا",
+    initiallyExpanded = false
+) {
     if (ara != null) {
         Text(
             String.format(Locale.US, "%,.0f ریال", ara.currentPriceRial),
@@ -777,6 +780,7 @@ if (selectedMarket != "طلای ۱۸ عیار") {
     } else {
         Text("قیمت نرخ‌آرا دریافت نشد.", color = Red)
     }
+}
 
     if (tgju != null && ara != null) {
         val difference = kotlin.math.abs(
