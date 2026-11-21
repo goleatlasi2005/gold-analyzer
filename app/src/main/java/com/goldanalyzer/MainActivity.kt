@@ -268,10 +268,22 @@ suspend fun refreshSelectedMarket() {
                 loadAyiarChart()  
             }  
 
+                        "مظنه طلا" -> {
+                priceLoading = true
+                try {
+                    mesghalQuote = mesghalRepository.getLivePrice()
+                } catch (e: Exception) {
+                    priceError =
+                        e.message ?: "خطا در دریافت قیمت مظنه"
+                } finally {
+                    priceLoading = false
+                }
+            }
+
             else -> {
-    // با تغییر کلید، پنل TGJU فوراً دوباره قیمت را دریافت می‌کند.
-    tgjuPanelRefreshKey++
-    priceError = null
+                // با تغییر کلید، پنل TGJU فوراً دوباره قیمت را دریافت می‌کند.
+                tgjuPanelRefreshKey++
+                priceError = null
             }
         }
     }
