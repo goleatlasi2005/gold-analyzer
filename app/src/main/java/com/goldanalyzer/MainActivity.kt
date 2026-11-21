@@ -1042,14 +1042,69 @@ if (selectedMarket != "طلای ۱۸ عیار") {
                         }  
                     }  
 
-                    else -> {  
-                        Text(  
-                            "موتور تحلیل این بازار هنوز به منبع کندل معتبر متصل نشده است.",  
-                            color = TextGray  
-                        )  
-                    }  
-                }  
-            }
+                                        "انس جهانی طلا" -> {
+                        when {
+                            xauAnalysisLoading &&
+                                activeXauTimeframeAnalysis == null -> {
+                                CircularProgressIndicator(color = DarkGold)
+                                Text("در حال دریافت داده و محاسبه سیگنال انس...")
+                            }
+
+                            activeXauTimeframeAnalysis == null &&
+                                xauAnalysisError != null -> {
+                                Text(
+                                    xauAnalysisError!!,
+                                    color = Red
+                                )
+                            }
+
+                            activeXauTimeframeAnalysis == null -> {
+                                Text(
+                                    "هنوز تحلیل این تایم‌فریم انس آماده نشده است.",
+                                    color = TextGray
+                                )
+                            }
+
+                            activeXauTimeframeAnalysis.completedCandles.size < requiredCandles -> {
+                                Text(
+                                    "برای محاسبه سیگنال حداقل $requiredCandles کندل کامل لازم است.",
+                                    color = TextGray
+                                )
+                                Text(
+                                    "تعداد کندل کامل فعلی: ${activeXauTimeframeAnalysis.completedCandles.size}",
+                                    color = DarkGold,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    "در این تایم‌فریم فعلاً سیگنال صادر نمی‌شود.",
+                                    color = Red
+                                )
+                            }
+
+                            xauTradingSignal == null -> {
+                                Text(
+                                    "داده‌های دریافتی برای محاسبه سیگنال انس کافی یا معتبر نیستند.",
+                                    color = Red
+                                )
+                            }
+
+                            else -> {
+                                TradingSignalContent(
+                                    signal = xauTradingSignal,
+                                    candleCount = activeXauTimeframeAnalysis.completedCandles.size,
+                                    candleTime = activeXauTimeframeAnalysis.completedCandles.lastOrNull()?.closeTime,
+                                    priceInUsd = true
+                                )
+                            }
+                        }
+                    }
+
+                    else -> {
+                        Text(
+                            "موتور تحلیل این بازار هنوز به منبع کندل معتبر متصل نشده است.",
+                            color = TextGray
+                        )
+                    }
             // سیگنال ترکیبی کوتاه‌مدت  
             ExpandableSection("سیگنال ترکیبی کوتاه‌مدت") {  
                 if (selectedMarket != "صندوق طلای عیار") {  
