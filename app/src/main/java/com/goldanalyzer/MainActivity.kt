@@ -757,7 +757,7 @@ if (selectedMarket != "طلای ۱۸ عیار") {
                     }  
                 }  
             }  
-
+if (selectedMarket != "طلای ۱۸ عیار") {
             ExpandableSection("سیگنال معاملاتی") {  
                 when (selectedMarket) {  
                     "صندوق طلای عیار" -> {  
@@ -1029,7 +1029,7 @@ if (selectedMarket != "طلای ۱۸ عیار") {
                 color = TextGray,  
                 fontSize = 12.sp  
             )  
-
+}
             Spacer(Modifier.height(12.dp))  
         }  
     }  
