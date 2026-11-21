@@ -206,7 +206,30 @@ suspend fun loadAyiarChart() {
         chartLoading = false  
     }  
 }  
+suspend fun loadXauChart() {
+    if (xauCandles?.candles.isNullOrEmpty()) {
+        chartLoading = true
+    }
 
+    chartError = null
+
+    try {
+        val newCandles = xauCandleRepository.getCandles(
+            intervalMinutes = intervalMinutes,
+            forceRefresh = true
+        )
+
+        if (newCandles.candles.isEmpty()) {
+            chartError = "کندلی برای نمایش انس دریافت نشد."
+        } else {
+            xauCandles = newCandles
+        }
+    } catch (e: Exception) {
+        chartError = e.message ?: "خطا در دریافت نمودار انس"
+    } finally {
+        chartLoading = false
+    }
+}
 suspend fun refreshShortTermCombined() {  
     combinedRefreshMutex.withLock {  
         shortTermCombinedLoading = true  
