@@ -552,7 +552,25 @@ val supportResistanceLevels = remember(
         emptyList()  
     }  
 }  
+// کندل‌های کامل انس جهانی
+val completedXauCandles = remember(xauCandles) {
+    val now = System.currentTimeMillis()
+    xauCandles?.candles.orEmpty()
+        .filter { it.closeTime <= now }
+        .sortedBy { it.openTime }
+}
 
+// محاسبه مستقل حمایت و مقاومت انس
+val xauSupportResistanceLevels = remember(
+    xauCandles,
+    selectedMarket
+) {
+    if (selectedMarket == "انس جهانی طلا") {
+        SupportResistanceEngine.analyze(completedXauCandles)
+    } else {
+        emptyList()
+    }
+}
 val lastAnalyzedCandle = completedCandles.lastOrNull()  
 
 MaterialTheme {  
