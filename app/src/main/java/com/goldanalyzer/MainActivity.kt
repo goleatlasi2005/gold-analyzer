@@ -1105,6 +1105,9 @@ if (selectedMarket != "طلای ۱۸ عیار") {
                             color = TextGray
                         )
                     }
+                                    }
+            }
+}
             // سیگنال ترکیبی کوتاه‌مدت  
             ExpandableSection("سیگنال ترکیبی کوتاه‌مدت") {  
                 if (selectedMarket != "صندوق طلای عیار") {  
