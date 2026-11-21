@@ -69,6 +69,9 @@ var ayiarQuote by remember {
 var mesghalQuote by remember {
     mutableStateOf<MesghalQuote?>(null)
 }
+var mesghalPrices by remember {
+    mutableStateOf<MesghalPrices?>(null)
+}
 var ayiarCandles by remember {  
     mutableStateOf<CandleSeries?>(null)  
 }  
