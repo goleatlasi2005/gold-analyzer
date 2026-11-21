@@ -333,7 +333,22 @@ LaunchedEffect(selectedMarket) {
                 }  
             }  
         }  
-
+        "مظنه طلا" -> {
+            while (true) {
+                refreshMutex.withLock {
+                    priceLoading = mesghalQuote == null
+                    try {
+                        mesghalQuote = mesghalRepository.getLivePrice()
+                        priceError = null
+                    } catch (e: Exception) {
+                        priceError = e.message ?: "خطا در دریافت قیمت مظنه"
+                    } finally {
+                        priceLoading = false
+                    }
+                }
+                delay(60_000L)
+            }
+        }
         else -> {
     // پنل TGJU دریافت و به‌روزرسانی قیمت را مستقلاً انجام می‌دهد.
     priceError = null
