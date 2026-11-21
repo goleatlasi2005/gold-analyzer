@@ -28,7 +28,7 @@ data class CombinedSignalSnapshot(
 object CombinedSignalCoordinator {
 
     suspend fun load(
-        repository: AyiarRepository,
+        repository: MarketCandleRepository,
         nowMillis: Long = System.currentTimeMillis()
     ): CombinedSignalSnapshot {
 
@@ -43,7 +43,7 @@ object CombinedSignalCoordinator {
     }
 
     suspend fun loadShortTerm(
-        repository: AyiarRepository,
+        repository: MarketCandleRepository,
         nowMillis: Long = System.currentTimeMillis()
     ): CombinedPeriodResult = coroutineScope {
 
@@ -94,11 +94,10 @@ object CombinedSignalCoordinator {
     }
 
     suspend fun loadMediumTerm(
-        repository: AyiarRepository,
+        repository: MarketCandleRepository,
         nowMillis: Long = System.currentTimeMillis()
     ): CombinedPeriodResult {
 
-        // ابتدا ۴ ساعته دریافت می‌شود.
         val fourHour = loadTimeframe(
             repository = repository,
             intervalMinutes = 240,
@@ -107,7 +106,6 @@ object CombinedSignalCoordinator {
             nowMillis = nowMillis
         )
 
-        // سپس داده روزانه دریافت می‌شود.
         val daily = loadTimeframe(
             repository = repository,
             intervalMinutes = null,
@@ -116,8 +114,6 @@ object CombinedSignalCoordinator {
             nowMillis = nowMillis
         )
 
-        // یک‌ساعته در آخر دریافت می‌شود تا فرصت داشته باشد
-        // از تحلیل اختصاصی و داده ذخیره‌شده استفاده کند.
         val oneHour = loadTimeframe(
             repository = repository,
             intervalMinutes = 60,
@@ -126,7 +122,6 @@ object CombinedSignalCoordinator {
             nowMillis = nowMillis
         )
 
-        // ترتیب خروجی و وزن‌ها مطابق ساختار اصلی حفظ می‌شود.
         val results = listOf(
             oneHour,
             fourHour,
@@ -144,7 +139,7 @@ object CombinedSignalCoordinator {
     }
 
     private suspend fun loadTimeframe(
-        repository: AyiarRepository,
+        repository: MarketCandleRepository,
         intervalMinutes: Int?,
         label: String,
         weightPercent: Int,
@@ -152,8 +147,6 @@ object CombinedSignalCoordinator {
     ): CombinedTimeframeResult {
 
         return try {
-            // استفاده از همان تحلیل و داده ذخیره‌شده
-            // که بخش سیگنال اختصاصی نیز از آن استفاده می‌کند.
             val analysis = TimeframeAnalysisStore.getAnalysis(
                 repository = repository,
                 intervalMinutes = intervalMinutes,
@@ -194,7 +187,6 @@ object CombinedSignalCoordinator {
         primaryTimeframeLabel: String
     ): TradingSignal? {
 
-        // هر سه تایم‌فریم باید سیگنال معتبر داشته باشند.
         if (
             results.size != 3 ||
             results.any { it.signal == null }
