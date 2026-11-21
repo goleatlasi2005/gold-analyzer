@@ -1455,6 +1455,7 @@ HorizontalDivider(color = Color(0xFFEAEAEA))
                 }
             }
 }
+if (selectedMarket != "طلای ۱۸ عیار") {
             // کشوی مستقل حمایت و مقاومت  
             ExpandableSection("حمایت و مقاومت") {  
                 if (selectedMarket == "انس جهانی طلا") {
@@ -1619,7 +1620,7 @@ HorizontalDivider(color = Color(0xFFEAEAEA))
                     )  
                 }  
             }  
-
+}
             Text(  
                 "هشدار: سیگنال‌ها خروجی محاسبات تکنیکال هستند و احتمال سود یا زیان را تضمین نمی‌کنند. این نسخه هنوز بک‌تست عملکرد ندارد.",  
                 color = TextGray,  
