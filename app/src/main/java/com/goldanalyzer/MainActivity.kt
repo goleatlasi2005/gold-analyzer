@@ -1262,6 +1262,7 @@ if (selectedMarket != "طلای ۱۸ عیار") {
                 }
             }  
 }
+if (selectedMarket != "طلای ۱۸ عیار") {
             ExpandableSection("تحلیل تکنیکال") {  
                 if (selectedMarket == "صندوق طلای عیار") {  
                     Text(  
@@ -1453,7 +1454,7 @@ HorizontalDivider(color = Color(0xFFEAEAEA))
                     )
                 }
             }
-
+}
             // کشوی مستقل حمایت و مقاومت  
             ExpandableSection("حمایت و مقاومت") {  
                 if (selectedMarket == "انس جهانی طلا") {
