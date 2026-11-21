@@ -1634,8 +1634,6 @@ HorizontalDivider(color = Color(0xFFEAEAEA))
     }  
 }
 
-}
-
 @Composable
 private fun CombinedPeriodContent(
 period: CombinedPeriodResult?,
