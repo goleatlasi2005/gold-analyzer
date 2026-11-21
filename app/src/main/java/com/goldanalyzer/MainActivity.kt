@@ -1212,14 +1212,73 @@ if (selectedMarket != "طلای ۱۸ عیار") {
                             "پس از دریافت حداقل $requiredCandles کندل کامل، تحلیل اندیکاتورها نمایش داده می‌شود.",  
                             color = TextGray  
                         )  
-                    }  
-                } else {  
-                    Text(  
-                        "تحلیل مستقل این بازار پس از اتصال منبع کندل معتبر فعال می‌شود.",  
-                        color = TextGray  
-                    )  
-                }  
-            }  
+                    }                  } else if (selectedMarket == "انس جهانی طلا") {
+                    Text(
+                        "تایم‌فریم: $selectedTimeframe",
+                        color = DarkGold,
+                        fontWeight = FontWeight.Bold
+                    )
+
+                    Text(
+                        "تعداد کندل‌های کامل: ${activeXauTimeframeAnalysis?.completedCandles?.size ?: 0}",
+                        color = TextGray
+                    )
+
+                    Text(
+                        "حداقل کندل موردنیاز: $requiredCandles",
+                        color = TextGray
+                    )
+
+                    Text(
+                        "میانگین بلندمدت: EMA$longEmaPeriod",
+                        color = TextGray
+                    )
+
+                    if (xauTradingSignal != null) {
+                        Text(
+                            "جهت روند: ${xauTradingSignal.trend}",
+                            color = TextDark,
+                            fontWeight = FontWeight.Bold
+                        )
+
+                        xauTradingSignal.adx?.let {
+                            Text(
+                                "ADX: ${String.format(Locale.US, "%.2f", it)}",
+                                color = TextDark
+                            )
+                        }
+
+                        Text(
+                            "ATR: ${String.format(Locale.US, "%.2f USD", xauTradingSignal.atr)}",
+                            color = TextDark
+                        )
+
+                        HorizontalDivider(color = Color(0xFFEAEAEA))
+
+                        Text(
+                            "دلایل تحلیل:",
+                            color = DarkGold,
+                            fontWeight = FontWeight.Bold
+                        )
+
+                        xauTradingSignal.reasons.forEach { reason ->
+                            Text(
+                                "• $reason",
+                                color = TextGray
+                            )
+                        }
+                    } else {
+                        Text(
+                            "پس از دریافت حداقل $requiredCandles کندل کامل، تحلیل اندیکاتورها نمایش داده می‌شود.",
+                            color = TextGray
+                        )
+                    }
+                } else {
+                    Text(
+                        "تحلیل مستقل این بازار پس از اتصال منبع کندل معتبر فعال می‌شود.",
+                        color = TextGray
+                    )
+                }
 
             // کشوی مستقل حمایت و مقاومت  
             ExpandableSection("حمایت و مقاومت") {  
