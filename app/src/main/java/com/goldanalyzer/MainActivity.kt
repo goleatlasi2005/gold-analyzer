@@ -1702,7 +1702,7 @@ if (period.combinedSignal == null) {
         signal = period.combinedSignal,  
         candleCount = primary?.candleCount ?: 0,  
         candleTime = primary?.lastCandleTime,  
-        oneWayMarket = true
+        oneWayMarket = true,
         priceInUsd = priceInUsd
     )  
 }  
