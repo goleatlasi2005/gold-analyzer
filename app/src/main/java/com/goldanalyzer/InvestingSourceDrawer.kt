@@ -1,6 +1,8 @@
 
 package com.goldanalyzer
 
+import android.webkit.CookieManager
+import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.compose.foundation.clickable
@@ -59,10 +61,24 @@ fun InvestingSourceDrawer() {
                             settings.javaScriptEnabled = true
                             settings.domStorageEnabled = true
                             settings.loadsImagesAutomatically = true
+                            settings.databaseEnabled = true
+                            settings.javaScriptCanOpenWindowsAutomatically = true
+                            settings.setSupportMultipleWindows(true)
+
+                            settings.userAgentString =
+                                "Mozilla/5.0 (Linux; Android 16; SM-A536E) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36"
+
+                            CookieManager.getInstance().setAcceptCookie(true)
+                            CookieManager.getInstance()
+                                .setAcceptThirdPartyCookies(this, true)
+
                             webViewClient = WebViewClient()
+                            webChromeClient = WebChromeClient()
+
                             loadUrl(
                                 "https://www.investing.com/currencies/xau-usd-chart"
                             )
+
                             webView = this
                         }
                     },
