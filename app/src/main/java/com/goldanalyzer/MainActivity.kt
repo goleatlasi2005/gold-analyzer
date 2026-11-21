@@ -1283,7 +1283,57 @@ val xauBollinger = remember(completedXauCandles) {
                             "ATR: ${String.format(Locale.US, "%.2f USD", xauTradingSignal.atr)}",
                             color = TextDark
                         )
+HorizontalDivider(color = Color(0xFFEAEAEA))
 
+Text(
+    "اندیکاتورهای تکنیکال",
+    color = DarkGold,
+    fontWeight = FontWeight.Bold
+)
+
+Text(
+    "RSI (14): ${
+        xauRsi?.let { String.format(Locale.US, "%.2f", it) }
+            ?: "نامشخص"
+    }",
+    color = TextDark
+)
+
+if (xauMacd != null) {
+    Text(
+        "MACD: ${String.format(Locale.US, "%.2f", xauMacd.macd)}",
+        color = TextDark
+    )
+    Text(
+        "خط سیگنال: ${String.format(Locale.US, "%.2f", xauMacd.signal)}",
+        color = TextDark
+    )
+    Text(
+        "هیستوگرام: ${String.format(Locale.US, "%.2f", xauMacd.histogram)}",
+        color = TextDark
+    )
+} else {
+    Text("MACD: داده کافی نیست", color = TextGray)
+}
+
+if (xauBollinger != null) {
+    Text(
+        "باند بالایی بولینگر: ${String.format(Locale.US, "%.2f USD", xauBollinger.upper)}",
+        color = TextDark
+    )
+    Text(
+        "باند میانی بولینگر: ${String.format(Locale.US, "%.2f USD", xauBollinger.middle)}",
+        color = TextDark
+    )
+    Text(
+        "باند پایینی بولینگر: ${String.format(Locale.US, "%.2f USD", xauBollinger.lower)}",
+        color = TextDark
+    )
+} else {
+    Text("بولینگر: داده کافی نیست", color = TextGray)
+}
+
+HorizontalDivider(color = Color(0xFFEAEAEA))
                         HorizontalDivider(color = Color(0xFFEAEAEA))
 
                         Text(
