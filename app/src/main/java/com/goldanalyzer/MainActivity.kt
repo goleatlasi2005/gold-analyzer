@@ -1301,7 +1301,85 @@ if (selectedMarket != "طلای ۱۸ عیار") {
 
             // کشوی مستقل حمایت و مقاومت  
             ExpandableSection("حمایت و مقاومت") {  
-                if (selectedMarket != "صندوق طلای عیار") {  
+                if (selectedMarket == "انس جهانی طلا") {
+    if (completedXauCandles.size < 60) {
+        Text(
+            "برای محاسبه حمایت و مقاومت انس حداقل ۶۰ کندل کامل لازم است.",
+            color = TextGray
+        )
+        Text(
+            "تعداد کندل کامل فعلی: ${completedXauCandles.size}",
+            color = DarkGold
+        )
+    } else if (xauSupportResistanceLevels.isEmpty()) {
+        Text(
+            "در داده‌های فعلی انس سطح معتبر حمایت یا مقاومت پیدا نشد.",
+            color = TextGray
+        )
+    } else {
+        Text(
+            "قیمت مبنا: ${String.format(Locale.US, "%,.2f USD", completedXauCandles.last().close)}",
+            color = TextDark,
+            fontWeight = FontWeight.Bold
+        )
+
+        HorizontalDivider(color = Color(0xFFEAEAEA))
+
+        Text(
+            "سطوح استاتیک",
+            color = DarkGold,
+            fontWeight = FontWeight.Bold,
+            fontSize = 16.sp
+        )
+
+        val xauStaticLevels =
+            xauSupportResistanceLevels.filter {
+                it.kind == "استاتیک"
+            }
+
+        if (xauStaticLevels.isEmpty()) {
+            Text(
+                "سطح استاتیک نزدیک و معتبری پیدا نشد.",
+                color = TextGray
+            )
+        } else {
+            xauStaticLevels.forEach { level ->
+                SupportResistanceRow(level, priceInUsd = true)
+            }
+        }
+
+        HorizontalDivider(color = Color(0xFFEAEAEA))
+
+        Text(
+            "سطوح داینامیک",
+            color = DarkGold,
+            fontWeight = FontWeight.Bold,
+            fontSize = 16.sp
+        )
+
+        val xauDynamicLevels =
+            xauSupportResistanceLevels.filter {
+                it.kind == "داینامیک"
+            }
+
+        if (xauDynamicLevels.isEmpty()) {
+            Text(
+                "سطح داینامیک در دسترس نیست.",
+                color = TextGray
+            )
+        } else {
+            xauDynamicLevels.forEach { level ->
+                SupportResistanceRow(level, priceInUsd = true)
+            }
+        }
+
+        Text(
+            "سطوح استاتیک از سقف‌ها و کف‌های چرخشی قیمت و سطوح داینامیک از EMA20، EMA50 و کیجون ایچیموکو محاسبه می‌شوند.",
+            color = TextGray,
+            fontSize = 11.sp
+        )
+    }
+} else if (selectedMarket != "صندوق طلای عیار") {
                     Text(  
                         "این بخش فعلاً برای صندوق طلای عیار فعال است.",  
                         color = TextGray  
