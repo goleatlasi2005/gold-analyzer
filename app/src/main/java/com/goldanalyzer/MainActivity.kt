@@ -1529,7 +1529,8 @@ if (error != null) {
 }
 @Composable
 private fun SupportResistanceRow(
-level: SupportResistanceLevel
+    level: SupportResistanceLevel,
+    priceInUsd: Boolean = false
 ) {
 val isSupport = level.side == LevelSide.SUPPORT
 val levelColor = if (isSupport) Green else Red
@@ -1566,8 +1567,11 @@ Card(
             )  
         }  
 
-        Text(  
-            formatRial(level.price),  
+        Text(  if (priceInUsd) {
+    String.format(Locale.US, "%,.2f USD", level.price)
+} else {
+    formatRial(level.price)
+        }  
             color = TextDark,  
             fontWeight = FontWeight.Bold,  
             fontSize = 17.sp  
