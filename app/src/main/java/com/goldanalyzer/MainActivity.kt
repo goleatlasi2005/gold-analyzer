@@ -1567,15 +1567,16 @@ Card(
             )  
         }  
 
-        Text(  if (priceInUsd) {
-    String.format(Locale.US, "%,.2f USD", level.price)
-} else {
-    formatRial(level.price)
-        }  
-            color = TextDark,  
-            fontWeight = FontWeight.Bold,  
-            fontSize = 17.sp  
-        )  
+        Text(
+    if (priceInUsd) {
+        String.format(Locale.US, "%,.2f USD", level.price)
+    } else {
+        formatRial(level.price)
+    },
+    color = TextDark,
+    fontWeight = FontWeight.Bold,
+    fontSize = 17.sp
+)
 
         Row(  
             modifier = Modifier.fillMaxWidth(),  
