@@ -1177,7 +1177,8 @@ if (selectedMarket != "طلای ۱۸ عیار") {
                 period = xauShortTermCombined,
                 loading = xauShortTermCombinedLoading,
                 error = xauShortTermCombinedError,
-                primaryTimeframeLabel = "۳۰ دقیقه"
+                primaryTimeframeLabel = "۳۰ دقیقه",
+                priceInUsd = true
             )
         }
 
