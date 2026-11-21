@@ -21,6 +21,11 @@ data class MesghalQuote(
     val isFresh: Boolean
 )
 
+data class MesghalPrices(
+    val tgju: MesghalQuote?,
+    val nerkhAra: MesghalQuote?
+)
+
 class MesghalRepository(
     private val httpClient: OkHttpClient = OkHttpClient()
 ) {
