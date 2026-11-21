@@ -526,15 +526,18 @@ MaterialTheme {
                     }  
                 }  
             }  
+if (selectedMarket != "طلای ۱۸ عیار") {
+    Text(
+        "انتخاب تایم‌فریم",
+        color = TextDark,
+        fontSize = 18.sp,
+        fontWeight = FontWeight.Bold
+    )
 
-            Text(  
-                "انتخاب تایم‌فریم",  
-                color = TextDark,  
-                fontSize = 18.sp,  
-                fontWeight = FontWeight.Bold  
-            )  
-
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {  
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        // تمام کد فعلی FilterChipها اینجا باقی می‌ماند
+    }
+}
                 timeframes.chunked(3).forEach { group ->  
                     Row(  
                         horizontalArrangement = Arrangement.spacedBy(7.dp)  
