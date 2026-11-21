@@ -274,8 +274,8 @@ suspend fun refreshSelectedMarket() {
 
                         "مظنه طلا" -> {
                 priceLoading = true
-                try {
-                    mesghalQuote = mesghalRepository.getLivePrice()
+                try {mesghalPrices = mesghalRepository.getLivePrices()
+mesghalQuote = mesghalPrices?.tgju
                 } catch (e: Exception) {
                     priceError =
                         e.message ?: "خطا در دریافت قیمت مظنه"
