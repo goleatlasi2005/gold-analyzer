@@ -1279,6 +1279,7 @@ if (selectedMarket != "طلای ۱۸ عیار") {
                         color = TextGray
                     )
                 }
+            }
 
             // کشوی مستقل حمایت و مقاومت  
             ExpandableSection("حمایت و مقاومت") {  
