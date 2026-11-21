@@ -899,12 +899,36 @@ else -> {
                         }  
                     }  
 
-                    "انس جهانی طلا" -> {  
-                        Text(  
-                            "اتصال تاریخچه نمودار انس هنوز انجام نشده است.",  
-                            color = TextGray  
-                        )  
-                    }  
+                    "انس جهانی طلا" -> {
+    val candles = xauCandles?.candles.orEmpty()
+
+    if (candles.isNotEmpty()) {
+        Text(
+            "تعداد کندل‌ها: ${candles.size}",
+            color = TextGray
+        )
+
+        CandlestickChart(
+            candles = candles,
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        if (chartError != null) {
+            Text(
+                "به‌روزرسانی نمودار ناموفق بود؛ نمودار قبلی نمایش داده می‌شود.",
+                color = TextGray
+            )
+        }
+    } else if (chartLoading) {
+        CircularProgressIndicator(color = DarkGold)
+        Text("در حال دریافت نمودار انس...")
+    } else {
+        Text(
+            chartError ?: "نمودار انس برای نمایش دریافت نشده است.",
+            color = TextGray
+        )
+    }
+                    }
 
                     else -> {  
                         Text(  
