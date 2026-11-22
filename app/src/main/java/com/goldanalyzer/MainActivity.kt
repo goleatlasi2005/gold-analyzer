@@ -1727,8 +1727,7 @@ if (selectedMarket != "طلای ۱۸ عیار") {
             )  
 }
             Spacer(Modifier.height(12.dp))  
-        }  
-    }  
+        }   
 }
 @Composable
 private fun CombinedPeriodContent(
