@@ -14,6 +14,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -891,72 +893,122 @@ if (selectedMarket != "طلای ۱۸ عیار") {
                             }  
                         }  
 
-                        "مظنه طلا" -> {
-    
+"مظنه طلا" -> {
+
+    val uriHandler = LocalUriHandler.current
+
     if (priceLoading && mesghalPrices == null) {
         CircularProgressIndicator(color = DarkGold)
-        Text("در حال دریافت قیمت از هر دو منبع...")
+        Text("در حال دریافت قیمت از طلاسنج و منابع مقایسه‌ای...")
     }
 
+    val talasanj = mesghalPrices?.talasanj
     val tgju = mesghalPrices?.tgju
     val ara = mesghalPrices?.nerkhAra
 
     Text("قیمت مظنه طلا")
 
     ExpandableSection(
-    title = "منبع اصلی: TGJU",
-    initiallyExpanded = true
-) {
-    if (tgju != null) {
-        Text(
-            String.format(Locale.US, "%,.0f ریال", tgju.currentPriceRial),
-            color = DarkGold,
-            fontSize = 25.sp,
-            fontWeight = FontWeight.Bold
-        )
-        Text("درصد تغییر: ${tgju.changePercent}٪", color = TextGray)
-        Text(
-            if (tgju.isFresh) "داده تازه" else "هشدار: داده تازه نیست",
-            color = if (tgju.isFresh) Green else Red
-        )
-    } else {
-        Text("قیمت TGJU دریافت نشد.", color = Red)
-    }
-}
+        title = "منبع اصلی: طلاسنج",
+        initiallyExpanded = true
+    ) {
+        if (talasanj != null) {
+            Text(
+                String.format(
+                    Locale.US,
+                    "%,.0f ریال",
+                    talasanj.currentPriceRial
+                ),
+                color = DarkGold,
+                fontSize = 25.sp,
+                fontWeight = FontWeight.Bold
+            )
 
-ExpandableSection(
-    title = "منبع دوم: نرخ‌آرا",
-    initiallyExpanded = false
-) {
-    if (ara != null) {
-        Text(
-            String.format(Locale.US, "%,.0f ریال", ara.currentPriceRial),
-            color = DarkGold,
-            fontSize = 25.sp,
-            fontWeight = FontWeight.Bold
-        )
-        Text("درصد تغییر: ${ara.changePercent}٪", color = TextGray)
-        Text(
-            if (ara.isFresh) "داده تازه" else "هشدار: داده تازه نیست",
-            color = if (ara.isFresh) Green else Red
-        )
-    } else {
-        Text("قیمت نرخ‌آرا دریافت نشد.", color = Red)
-    }
-}
+            Text(
+                "زمان قیمت: ${formatTehranTime(talasanj.observedAtMillis)}",
+                color = TextGray
+            )
 
-    if (tgju != null && ara != null) {
+            Text(
+                if (talasanj.isFresh) "داده تازه"
+                else "هشدار: داده تازه نیست",
+                color = if (talasanj.isFresh) Green else Red
+            )
+        } else {
+            Text("قیمت طلاسنج دریافت نشد.", color = Red)
+        }
+
+        Text(
+            text = "قیمت‌ها از طلاسنج",
+            color = Color(0xFF1565C0),
+            modifier = Modifier.clickable {
+                uriHandler.openUri("https://talasanj.info")
+            }
+        )
+    }
+
+    ExpandableSection(
+        title = "منبع دوم: TGJU",
+        initiallyExpanded = false
+    ) {
+        if (tgju != null) {
+            Text(
+                String.format(
+                    Locale.US,
+                    "%,.0f ریال",
+                    tgju.currentPriceRial
+                ),
+                color = DarkGold,
+                fontSize = 25.sp,
+                fontWeight = FontWeight.Bold
+            )
+            Text("درصد تغییر: ${tgju.changePercent}٪", color = TextGray)
+            Text(
+                if (tgju.isFresh) "داده تازه" else "هشدار: داده تازه نیست",
+                color = if (tgju.isFresh) Green else Red
+            )
+        } else {
+            Text("قیمت TGJU دریافت نشد.", color = Red)
+        }
+    }
+
+    ExpandableSection(
+        title = "منبع سوم: نرخ‌آرا",
+        initiallyExpanded = false
+    ) {
+        if (ara != null) {
+            Text(
+                String.format(
+                    Locale.US,
+                    "%,.0f ریال",
+                    ara.currentPriceRial
+                ),
+                color = DarkGold,
+                fontSize = 25.sp,
+                fontWeight = FontWeight.Bold
+            )
+            Text("درصد تغییر: ${ara.changePercent}٪", color = TextGray)
+            Text(
+                if (ara.isFresh) "داده تازه" else "هشدار: داده تازه نیست",
+                color = if (ara.isFresh) Green else Red
+            )
+        } else {
+            Text("قیمت نرخ‌آرا دریافت نشد.", color = Red)
+        }
+    }
+
+    if (talasanj != null && tgju != null) {
         val difference = kotlin.math.abs(
-            tgju.currentPriceRial - ara.currentPriceRial
+            talasanj.currentPriceRial - tgju.currentPriceRial
         )
 
         val differencePercent =
-            difference / tgju.currentPriceRial * 100.0
+            difference / talasanj.currentPriceRial * 100.0
 
         Spacer(modifier = Modifier.height(12.dp))
 
         Text(
-            "اختلاف دو منبع: ${
+            "اختلاف طلاسنج و TGJU: ${
                 String.format(Locale.US, "%,.0f", difference)
             } ریال",
             fontWeight = FontWeight.Bold,
@@ -971,10 +1023,11 @@ ExpandableSection(
         )
     }
 
-        if (mesghalPrices == null && !priceLoading) {
+    if (mesghalPrices == null && !priceLoading) {
         Text("قیمت مظنه از هیچ‌کدام از منابع دریافت نشد.", color = Red)
     }
 }
+
 
 else -> {
     key(tgjuPanelRefreshKey) {
