@@ -340,65 +340,69 @@ suspend fun refreshXauMediumTermCombined() {
         }
     }
 }
-suspend fun refreshSelectedMarket() {  
-    refreshMutex.withLock {  
-        priceError = null  
-        chartError = null  
-        refreshStatus = null  
+suspend fun refreshSelectedMarket() {
+    refreshMutex.withLock {
+        priceError = null
+        chartError = null
+        refreshStatus = null
 
-        when (selectedMarket) {  
-            "انس جهانی طلا" -> {  
-                priceLoading = true  
-                try {  
-                    val talasanj = talasanjRepository.getPrices()
-val observedAt = Instant.parse(talasanj.updatedAt).toEpochMilli()
-val ageSeconds = ((System.currentTimeMillis() - observedAt) / 1000L)
-    .coerceAtLeast(0L)
-
-spotQuote = GoldSpotQuote(
-    priceUsdPerTroyOunce = talasanj.ounceUsd,
-    source = "Talasanj",
-    observedAtMillis = observedAt,
-    ageSeconds = ageSeconds,
-    isFresh = ageSeconds <= 180L,
- previousDailyCloseUsd = spotQuote?.previousDailyCloseUsd,
-changePercent = talasanj.ounceChangePercent
-)
-                } catch (e: Exception) {
-    try {
-        spotQuote = goldRepository.getXauUsdSpot()
-        priceError =
-            "دریافت از طلاسنج ناموفق بود؛ قیمت از منبع پشتیبان دریافت شد."
-    } catch (fallbackError: Exception) {
-        priceError =
-            fallbackError.message ?: e.message ?: "خطا در دریافت قیمت انس"
-    }
-                }
-                } finally {  
-                    priceLoading = false  
-                }  
-            }  
-
-            "صندوق طلای عیار" -> {  
-                priceLoading = true  
-                try {  
-                    loadAyiarPrice()  
-                } catch (e: Exception) {  
-                    priceError =  
-                        e.message ?: "خطا در دریافت قیمت عیار"  
-                } finally {  
-                    priceLoading = false  
-                }  
-
-                loadAyiarChart()  
-            }  
-
-                        "مظنه طلا" -> {
+        when (selectedMarket) {
+            "انس جهانی طلا" -> {
                 priceLoading = true
-                try {mesghalPrices = mesghalRepository.getLivePrices()
-mesghalQuote = mesghalPrices?.talasanj
-    ?: mesghalPrices?.tgju
-    ?: mesghalPrices?.nerkhAra
+                try {
+                    val talasanj = talasanjRepository.getPrices()
+                    val observedAt =
+                        Instant.parse(talasanj.updatedAt).toEpochMilli()
+                    val ageSeconds =
+                        ((System.currentTimeMillis() - observedAt) / 1000L)
+                            .coerceAtLeast(0L)
+
+                    spotQuote = GoldSpotQuote(
+                        priceUsdPerTroyOunce = talasanj.ounceUsd,
+                        source = "Talasanj",
+                        observedAtMillis = observedAt,
+                        ageSeconds = ageSeconds,
+                        isFresh = ageSeconds <= 180L,
+                        previousDailyCloseUsd = spotQuote?.previousDailyCloseUsd,
+                        changePercent = talasanj.ounceChangePercent
+                    )
+                } catch (e: Exception) {
+                    try {
+                        spotQuote = goldRepository.getXauUsdSpot()
+                        priceError =
+                            "دریافت از طلاسنج ناموفق بود؛ قیمت از منبع پشتیبان دریافت شد."
+                    } catch (fallbackError: Exception) {
+                        priceError =
+                            fallbackError.message
+                                ?: e.message
+                                ?: "خطا در دریافت قیمت انس"
+                    }
+                } finally {
+                    priceLoading = false
+                }
+            }
+
+            "صندوق طلای عیار" -> {
+                priceLoading = true
+                try {
+                    loadAyiarPrice()
+                } catch (e: Exception) {
+                    priceError =
+                        e.message ?: "خطا در دریافت قیمت عیار"
+                } finally {
+                    priceLoading = false
+                }
+
+                loadAyiarChart()
+            }
+
+            "مظنه طلا" -> {
+                priceLoading = true
+                try {
+                    mesghalPrices = mesghalRepository.getLivePrices()
+                    mesghalQuote = mesghalPrices?.talasanj
+                        ?: mesghalPrices?.tgju
+                        ?: mesghalPrices?.nerkhAra
                 } catch (e: Exception) {
                     priceError =
                         e.message ?: "خطا در دریافت قیمت مظنه"
@@ -408,7 +412,6 @@ mesghalQuote = mesghalPrices?.talasanj
             }
 
             else -> {
-                // با تغییر کلید، پنل TGJU فوراً دوباره قیمت را دریافت می‌کند.
                 tgjuPanelRefreshKey++
                 priceError = null
             }
