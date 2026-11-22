@@ -2304,7 +2304,7 @@ private fun SpotPriceSourceDrawer(
             ) {
                 Column {
                     Text(
-                        "منبع اصلی: قیمت ربات",
+                        "منبع اصلی: طلاسنج",
                         color = TextDark,
                         fontWeight = FontWeight.Bold
                     )
