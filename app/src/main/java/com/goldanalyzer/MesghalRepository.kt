@@ -7,6 +7,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONObject
 import java.text.SimpleDateFormat
+import java.time.Instant
 import java.util.Locale
 import java.util.TimeZone
 
@@ -22,28 +23,58 @@ data class MesghalQuote(
 )
 
 data class MesghalPrices(
+    val talasanj: MesghalQuote?,
     val tgju: MesghalQuote?,
     val nerkhAra: MesghalQuote?
 )
 
 class MesghalRepository(
-    private val httpClient: OkHttpClient = OkHttpClient()
+    private val httpClient: OkHttpClient = OkHttpClient(),
+    private val talasanjRepository: TalasanjRepository = TalasanjRepository()
 ) {
 
     suspend fun getLivePrices(): MesghalPrices {
+
+        val talasanjPrice = try {
+            val prices = talasanjRepository.getPrices()
+            val observedAt = try {
+                Instant.parse(prices.updatedAt).toEpochMilli()
+            } catch (_: Exception) {
+                System.currentTimeMillis()
+            }
+
+            val age = (
+                System.currentTimeMillis() - observedAt
+            ) / 1000L
+
+            MesghalQuote(
+                currentPriceRial = prices.mesghalToman * 10.0,
+                changeRial = 0.0,
+                changePercent = 0.0,
+                highRial = 0.0,
+                lowRial = 0.0,
+                observedAtMillis = observedAt,
+                ageSeconds = age.coerceAtLeast(0L),
+                isFresh = age in 0..900
+            )
+        } catch (_: Exception) {
+            null
+        }
+
         val tgjuPrice = try {
             getLivePrice()
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             null
         }
 
         val nerkhAraPrice = try {
             getNerkhAraPrice()
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             null
         }
 
         return MesghalPrices(
+            talasanj = talasanjPrice,
             tgju = tgjuPrice,
             nerkhAra = nerkhAraPrice
         )
