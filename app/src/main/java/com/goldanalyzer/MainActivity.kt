@@ -2370,11 +2370,12 @@ val uriHandler = LocalUriHandler.current
             }
         }
     }
+    if (quote?.source == "Talasanj") {
     Text(
-    text = "قیمت‌ها از طلاسنج",
-    color = DarkGold,
-    modifier = Modifier.clickable {
-        uriHandler.openUri("https://talasanj.info")
+        text = "قیمت‌ها از طلاسنج",
+        color = DarkGold,
+        modifier = Modifier.clickable {
+            uriHandler.openUri("https://talasanj.info")
+        }
+    )
     }
-)
-}
