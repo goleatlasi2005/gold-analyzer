@@ -361,7 +361,8 @@ spotQuote = GoldSpotQuote(
     observedAtMillis = observedAt,
     ageSeconds = ageSeconds,
     isFresh = ageSeconds <= 180L,
-    previousDailyCloseUsd = spotQuote?.previousDailyCloseUsd
+ previousDailyCloseUsd = spotQuote?.previousDailyCloseUsd,
+changePercent = talasanj.ounceChangePercent
 )
                 } catch (e: Exception) {
     try {
@@ -435,7 +436,8 @@ spotQuote = GoldSpotQuote(
     observedAtMillis = observedAt,
     ageSeconds = ageSeconds,
     isFresh = ageSeconds <= 180L,
-    previousDailyCloseUsd = spotQuote?.previousDailyCloseUsd
+    previousDailyCloseUsd = spotQuote?.previousDailyCloseUsd,
+changePercent = talasanj.ounceChangePercent
 )
                         priceError = null  
                     } catch (e: Exception) {
