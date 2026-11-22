@@ -374,7 +374,9 @@ suspend fun refreshSelectedMarket() {
                         "مظنه طلا" -> {
                 priceLoading = true
                 try {mesghalPrices = mesghalRepository.getLivePrices()
-mesghalQuote = mesghalPrices?.tgju
+mesghalQuote = mesghalPrices?.talasanj
+    ?: mesghalPrices?.tgju
+    ?: mesghalPrices?.nerkhAra
                 } catch (e: Exception) {
                     priceError =
                         e.message ?: "خطا در دریافت قیمت مظنه"
@@ -441,7 +443,9 @@ LaunchedEffect(selectedMarket) {
                     priceLoading = mesghalQuote == null
                     try {
                         mesghalPrices = mesghalRepository.getLivePrices()
-mesghalQuote = mesghalPrices?.tgju
+mesghalQuote = mesghalPrices?.talasanj
+    ?: mesghalPrices?.tgju
+    ?: mesghalPrices?.nerkhAra
                         priceError = null
                     } catch (e: Exception) {
                         priceError = e.message ?: "خطا در دریافت قیمت مظنه"
