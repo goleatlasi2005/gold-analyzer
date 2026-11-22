@@ -170,12 +170,28 @@ fun TgjuGoldPricePanel() {
                     fontWeight = FontWeight.Bold
                 )
 
-                q.gold18ChangePercent?.let { percent ->
-                    val changeColor = when {
-                        percent > 0.0 -> TgjuPanelGreen
-                        percent < 0.0 -> TgjuPanelRed
-                        else -> TgjuPanelTextGray
-                    }
+                if (q.gold18ChangePercent != null) {
+    val percent = q.gold18ChangePercent
+    val changeColor = when {
+        percent > 0.0 -> TgjuPanelGreen
+        percent < 0.0 -> TgjuPanelRed
+        else -> TgjuPanelTextGray
+    }
+
+    Text(
+        "درصد تغییر نسبت به روز قبل: ${
+            String.format(Locale.US, "%+.2f", percent)
+        }٪",
+        color = changeColor,
+        fontWeight = FontWeight.SemiBold
+    )
+} else {
+    Text(
+        "درصد تغییر نسبت به روز قبل در دسترس نیست",
+        color = TgjuPanelTextGray,
+        fontWeight = FontWeight.SemiBold
+    )
+}
 
                     Text(
                         "درصد تغییر نسبت به روز قبل: ${
