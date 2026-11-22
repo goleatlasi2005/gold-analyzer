@@ -350,7 +350,19 @@ suspend fun refreshSelectedMarket() {
             "انس جهانی طلا" -> {  
                 priceLoading = true  
                 try {  
-                    spotQuote = goldRepository.getXauUsdSpot()  
+                    val talasanj = talasanjRepository.getPrices()
+val observedAt = Instant.parse(talasanj.updatedAt).toEpochMilli()
+val ageSeconds = ((System.currentTimeMillis() - observedAt) / 1000L)
+    .coerceAtLeast(0L)
+
+spotQuote = GoldSpotQuote(
+    priceUsdPerTroyOunce = talasanj.ounceUsd,
+    source = "Talasanj",
+    observedAtMillis = observedAt,
+    ageSeconds = ageSeconds,
+    isFresh = ageSeconds <= 180L,
+    previousDailyCloseUsd = spotQuote?.previousDailyCloseUsd
+)
                 } catch (e: Exception) {  
                     priceError =  
                         e.message ?: "خطا در دریافت قیمت انس"  
