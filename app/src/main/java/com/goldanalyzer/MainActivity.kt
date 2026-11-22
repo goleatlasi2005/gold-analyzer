@@ -1008,7 +1008,6 @@ Text(
                 fontSize = 25.sp,
                 fontWeight = FontWeight.Bold
             )
-            Text("درصد تغییر: ${tgju.changePercent}٪", color = TextGray)
             Text(
                 if (tgju.isFresh) "داده تازه" else "هشدار: داده تازه نیست",
                 color = if (tgju.isFresh) Green else Red
