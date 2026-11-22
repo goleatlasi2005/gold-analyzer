@@ -1032,7 +1032,6 @@ Text(
                 fontSize = 25.sp,
                 fontWeight = FontWeight.Bold
             )
-            Text("درصد تغییر: ${ara.changePercent}٪", color = TextGray)
             Text(
                 if (ara.isFresh) "داده تازه" else "هشدار: داده تازه نیست",
                 color = if (ara.isFresh) Green else Red
