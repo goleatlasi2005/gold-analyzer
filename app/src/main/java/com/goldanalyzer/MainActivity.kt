@@ -363,9 +363,16 @@ spotQuote = GoldSpotQuote(
     isFresh = ageSeconds <= 180L,
     previousDailyCloseUsd = spotQuote?.previousDailyCloseUsd
 )
-                } catch (e: Exception) {  
-                    priceError =  
-                        e.message ?: "خطا در دریافت قیمت انس"  
+                } catch (e: Exception) {
+    try {
+        spotQuote = goldRepository.getXauUsdSpot()
+        priceError =
+            "دریافت از طلاسنج ناموفق بود؛ قیمت از منبع پشتیبان دریافت شد."
+    } catch (fallbackError: Exception) {
+        priceError =
+            fallbackError.message ?: e.message ?: "خطا در دریافت قیمت انس"
+    }
+                }
                 } finally {  
                     priceLoading = false  
                 }  
