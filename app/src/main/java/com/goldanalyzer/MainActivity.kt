@@ -2370,4 +2370,11 @@ val uriHandler = LocalUriHandler.current
             }
         }
     }
+    Text(
+    text = "قیمت‌ها از طلاسنج",
+    color = DarkGold,
+    modifier = Modifier.clickable {
+        uriHandler.openUri("https://talasanj.info")
+    }
+)
 }
