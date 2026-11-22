@@ -453,7 +453,7 @@ changePercent = talasanj.ounceChangePercent
             fallbackError.message ?: e.message ?: "خطا در دریافت قیمت انس"
     }
                     }
-                    } finally {  
+                    finally {
                         priceLoading = false  
                     }  
                 }  
