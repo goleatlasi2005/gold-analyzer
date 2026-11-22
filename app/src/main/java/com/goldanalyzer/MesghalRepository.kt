@@ -14,7 +14,7 @@ import java.util.TimeZone
 data class MesghalQuote(
     val currentPriceRial: Double,
     val changeRial: Double,
-    val changePercent: Double,
+    val changePercent: Double?,
     val highRial: Double,
     val lowRial: Double,
     val observedAtMillis: Long,
@@ -50,7 +50,7 @@ class MesghalRepository(
             MesghalQuote(
                 currentPriceRial = prices.mesghalToman * 10.0,
                 changeRial = 0.0,
-                changePercent = prices.mesghalChangePercent ?: 0.0,
+                changePercent = prices.mesghalChangePercent,
                 highRial = 0.0,
                 lowRial = 0.0,
                 observedAtMillis = observedAt,
