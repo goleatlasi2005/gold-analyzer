@@ -2283,7 +2283,7 @@ private fun SpotPriceSourceDrawer(
     loading: Boolean
 ) {
     var expanded by remember { mutableStateOf(true) }
-
+val uriHandler = LocalUriHandler.current
     Card(
         onClick = { expanded = !expanded },
         modifier = Modifier.fillMaxWidth(),
