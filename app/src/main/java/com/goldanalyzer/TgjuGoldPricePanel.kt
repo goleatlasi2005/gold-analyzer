@@ -23,6 +23,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -38,20 +39,59 @@ private val TgjuPanelRed = Color(0xFFB3261E)
 @Composable
 fun TgjuGoldPricePanel() {
 
-    var tgjuQuote by remember { mutableStateOf<TgjuGoldQuote?>(null) }
+    val uriHandler = LocalUriHandler.current
+
+    var talasanjPrices by remember {
+        mutableStateOf<TalasanjPrices?>(null)
+    }
+    var talasanjLoading by remember { mutableStateOf(true) }
+    var talasanjError by remember { mutableStateOf<String?>(null) }
+
+    var tgjuQuote by remember {
+        mutableStateOf<TgjuGoldQuote?>(null)
+    }
     var tgjuLoading by remember { mutableStateOf(true) }
     var tgjuError by remember { mutableStateOf<String?>(null) }
 
-    var talineQuote by remember { mutableStateOf<TalineGoldQuote?>(null) }
+    var talineQuote by remember {
+        mutableStateOf<TalineGoldQuote?>(null)
+    }
     var talineLoading by remember { mutableStateOf(true) }
     var talineError by remember { mutableStateOf<String?>(null) }
 
-    var tgjuExpanded by remember { mutableStateOf(true) }
+    var talasanjExpanded by remember { mutableStateOf(true) }
+    var tgjuExpanded by remember { mutableStateOf(false) }
     var talineExpanded by remember { mutableStateOf(false) }
 
-    val tgjuRepository = remember { TgjuGoldRepository() }
-    val talineRepository = remember { TalineGoldRepository() }
+    val talasanjRepository = remember {
+        TalasanjRepository()
+    }
+    val tgjuRepository = remember {
+        TgjuGoldRepository()
+    }
+    val talineRepository = remember {
+        TalineGoldRepository()
+    }
 
+    // منبع اصلی: طلاسنج
+    LaunchedEffect(Unit) {
+        while (true) {
+            try {
+                talasanjLoading = talasanjPrices == null
+                talasanjPrices = talasanjRepository.getPrices()
+                talasanjError = null
+            } catch (e: Exception) {
+                talasanjError =
+                    e.message ?: "خطا در دریافت قیمت طلاسنج"
+            } finally {
+                talasanjLoading = false
+            }
+
+            delay(60_000L)
+        }
+    }
+
+    // منبع دوم: TGJU
     LaunchedEffect(Unit) {
         while (true) {
             try {
@@ -59,14 +99,17 @@ fun TgjuGoldPricePanel() {
                 tgjuQuote = tgjuRepository.getLivePrice()
                 tgjuError = null
             } catch (e: Exception) {
-                tgjuError = e.message ?: "خطا در دریافت قیمت TGJU"
+                tgjuError =
+                    e.message ?: "خطا در دریافت قیمت TGJU"
             } finally {
                 tgjuLoading = false
             }
+
             delay(60_000L)
         }
     }
 
+    // منبع سوم: طلاین
     LaunchedEffect(Unit) {
         while (true) {
             try {
@@ -74,10 +117,12 @@ fun TgjuGoldPricePanel() {
                 talineQuote = talineRepository.getLivePrice()
                 talineError = null
             } catch (e: Exception) {
-                talineError = e.message ?: "خطا در دریافت قیمت طلاین"
+                talineError =
+                    e.message ?: "خطا در دریافت قیمت طلاین"
             } finally {
                 talineLoading = false
             }
+
             delay(60_000L)
         }
     }
@@ -86,6 +131,7 @@ fun TgjuGoldPricePanel() {
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
+
         Text(
             "قیمت لحظه‌ای طلای ۱۸ عیار",
             color = TgjuPanelDarkGold,
@@ -93,20 +139,99 @@ fun TgjuGoldPricePanel() {
             fontWeight = FontWeight.Bold
         )
 
+        // منبع اصلی: طلاسنج
+        SourceDrawer(
+            title = "طلاسنج",
+            subtitle = "منبع اصلی قیمت",
+            expanded = talasanjExpanded,
+            onClick = {
+                talasanjExpanded = !talasanjExpanded
+            }
+        ) {
+            if (talasanjLoading && talasanjPrices == null) {
+                CircularProgressIndicator(
+                    color = TgjuPanelDarkGold
+                )
+                Text(
+                    "در حال دریافت قیمت از طلاسنج...",
+                    color = TgjuPanelTextGray
+                )
+            }
+
+            talasanjPrices?.let { q ->
+
+                Text(
+                    String.format(
+                        Locale.US,
+                        "%,d تومان",
+                        q.gold18Toman
+                    ),
+                    color = TgjuPanelDarkGold,
+                    fontSize = 27.sp,
+                    fontWeight = FontWeight.Bold
+                )
+
+                Text(
+                    "آخرین به‌روزرسانی: ${q.updatedAt}",
+                    color = TgjuPanelTextGray,
+                    fontSize = 12.sp
+                )
+
+                Text(
+                    "وضعیت بازار: ${
+                        if (q.marketOpen) "باز" else "بسته"
+                    }",
+                    color = TgjuPanelTextGray,
+                    fontSize = 12.sp
+                )
+
+                Text(
+                    "قیمت‌ها از طلاسنج",
+                    modifier = Modifier.clickable {
+                        uriHandler.openUri("https://talasanj.info")
+                    },
+                    color = Color(0xFF1565C0),
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+
+            if (talasanjError != null) {
+                Text(
+                    "خطای طلاسنج: $talasanjError",
+                    color = TgjuPanelRed,
+                    fontSize = 12.sp
+                )
+            }
+        }
+
+        // منبع دوم: TGJU
         SourceDrawer(
             title = "TGJU",
-            subtitle = "منبع اصلی قیمت",
+            subtitle = "منبع دوم قیمت",
             expanded = tgjuExpanded,
-            onClick = { tgjuExpanded = !tgjuExpanded }
+            onClick = {
+                tgjuExpanded = !tgjuExpanded
+            }
         ) {
             if (tgjuLoading && tgjuQuote == null) {
-                CircularProgressIndicator(color = TgjuPanelDarkGold)
-                Text("در حال دریافت قیمت از TGJU...", color = TgjuPanelTextGray)
+                CircularProgressIndicator(
+                    color = TgjuPanelDarkGold
+                )
+                Text(
+                    "در حال دریافت قیمت از TGJU...",
+                    color = TgjuPanelTextGray
+                )
             }
 
             tgjuQuote?.let { q ->
+
                 Text(
-                    String.format(Locale.US, "%,.0f تومان", q.currentPriceToman),
+                    String.format(
+                        Locale.US,
+                        "%,.0f تومان",
+                        q.currentPriceToman
+                    ),
                     color = TgjuPanelDarkGold,
                     fontSize = 25.sp,
                     fontWeight = FontWeight.Bold
@@ -120,9 +245,17 @@ fun TgjuGoldPricePanel() {
 
                 Text(
                     "تغییر روزانه: ${
-                        String.format(Locale.US, "%+,.0f", q.changeToman)
+                        String.format(
+                            Locale.US,
+                            "%+,.0f",
+                            q.changeToman
+                        )
                     } تومان (${
-                        String.format(Locale.US, "%+.2f", q.changePercent)
+                        String.format(
+                            Locale.US,
+                            "%+.2f",
+                            q.changePercent
+                        )
                     }٪)",
                     color = changeColor,
                     fontWeight = FontWeight.SemiBold
@@ -133,13 +266,27 @@ fun TgjuGoldPricePanel() {
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(
-                        "بیشترین: ${String.format(Locale.US, "%,.0f", q.highToman)} تومان",
+                        "بیشترین: ${
+                            String.format(
+                                Locale.US,
+                                "%,.0f",
+                                q.highToman
+                            )
+                        } تومان",
                         color = TgjuPanelGreen,
                         fontSize = 12.sp
                     )
+
                     Spacer(Modifier.width(8.dp))
+
                     Text(
-                        "کمترین: ${String.format(Locale.US, "%,.0f", q.lowToman)} تومان",
+                        "کمترین: ${
+                            String.format(
+                                Locale.US,
+                                "%,.0f",
+                                q.lowToman
+                            )
+                        } تومان",
                         color = TgjuPanelRed,
                         fontSize = 12.sp
                     )
@@ -152,8 +299,16 @@ fun TgjuGoldPricePanel() {
                 )
 
                 Text(
-                    if (q.isFresh) "وضعیت داده: تازه" else "هشدار: داده TGJU قدیمی است",
-                    color = if (q.isFresh) TgjuPanelGreen else TgjuPanelRed,
+                    if (q.isFresh) {
+                        "وضعیت داده: تازه"
+                    } else {
+                        "هشدار: داده TGJU قدیمی است"
+                    },
+                    color = if (q.isFresh) {
+                        TgjuPanelGreen
+                    } else {
+                        TgjuPanelRed
+                    },
                     fontSize = 12.sp
                 )
             }
@@ -167,27 +322,48 @@ fun TgjuGoldPricePanel() {
             }
         }
 
+        // منبع سوم: طلاین
         SourceDrawer(
             title = "طلاین",
-            subtitle = "منبع مقایسه‌ای قیمت",
+            subtitle = "منبع سوم قیمت",
             expanded = talineExpanded,
-            onClick = { talineExpanded = !talineExpanded }
+            onClick = {
+                talineExpanded = !talineExpanded
+            }
         ) {
             if (talineLoading && talineQuote == null) {
-                CircularProgressIndicator(color = TgjuPanelDarkGold)
-                Text("در حال دریافت قیمت از طلاین...", color = TgjuPanelTextGray)
+                CircularProgressIndicator(
+                    color = TgjuPanelDarkGold
+                )
+                Text(
+                    "در حال دریافت قیمت از طلاین...",
+                    color = TgjuPanelTextGray
+                )
             }
 
             talineQuote?.let { q ->
+
                 Text(
-                    "قیمت خرید: ${String.format(Locale.US, "%,d", q.buyPriceToman)} تومان",
+                    "قیمت خرید: ${
+                        String.format(
+                            Locale.US,
+                            "%,d",
+                            q.buyPriceToman
+                        )
+                    } تومان",
                     color = TgjuPanelGreen,
                     fontSize = 19.sp,
                     fontWeight = FontWeight.Bold
                 )
 
                 Text(
-                    "قیمت فروش: ${String.format(Locale.US, "%,d", q.sellPriceToman)} تومان",
+                    "قیمت فروش: ${
+                        String.format(
+                            Locale.US,
+                            "%,d",
+                            q.sellPriceToman
+                        )
+                    } تومان",
                     color = TgjuPanelRed,
                     fontSize = 19.sp,
                     fontWeight = FontWeight.Bold
@@ -210,13 +386,13 @@ fun TgjuGoldPricePanel() {
         }
     }
 }
+
 @Composable
 private fun SourceDrawer(
     title: String,
     subtitle: String,
     expanded: Boolean,
     onClick: () -> Unit,
-    enabled: Boolean = true,
     content: @Composable () -> Unit
 ) {
     Card(
@@ -225,7 +401,9 @@ private fun SourceDrawer(
         colors = CardDefaults.cardColors(
             containerColor = Color.White
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = 1.dp
+        )
     ) {
         Column(
             modifier = Modifier.padding(14.dp),
@@ -234,7 +412,7 @@ private fun SourceDrawer(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable(enabled = enabled, onClick = onClick),
+                    .clickable(onClick = onClick),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Column(
@@ -242,10 +420,11 @@ private fun SourceDrawer(
                 ) {
                     Text(
                         title,
-                        color = if (enabled) TgjuPanelDarkGold else TgjuPanelTextGray,
+                        color = TgjuPanelDarkGold,
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold
                     )
+
                     Text(
                         subtitle,
                         color = TgjuPanelTextGray,
@@ -256,13 +435,14 @@ private fun SourceDrawer(
                 Text(
                     if (expanded) "⌃" else "⌄",
                     color = TgjuPanelDarkGold,
-                    fontSize = 23.sp,
-                    fontWeight = FontWeight.Bold
+                    fontSize = 23.sp
                 )
             }
 
             if (expanded) {
-                HorizontalDivider(color = Color(0xFFEAEAEA))
+                HorizontalDivider(
+                    color = Color(0xFFEAEAEA)
+                )
                 content()
             }
         }
