@@ -417,7 +417,19 @@ LaunchedEffect(selectedMarket) {
                 refreshMutex.withLock {  
                     priceLoading = spotQuote == null  
                     try {  
-                        spotQuote = goldRepository.getXauUsdSpot()  
+                        val talasanj = talasanjRepository.getPrices()
+val observedAt = Instant.parse(talasanj.updatedAt).toEpochMilli()
+val ageSeconds = ((System.currentTimeMillis() - observedAt) / 1000L)
+    .coerceAtLeast(0L)
+
+spotQuote = GoldSpotQuote(
+    priceUsdPerTroyOunce = talasanj.ounceUsd,
+    source = "Talasanj",
+    observedAtMillis = observedAt,
+    ageSeconds = ageSeconds,
+    isFresh = ageSeconds <= 180L,
+    previousDailyCloseUsd = spotQuote?.previousDailyCloseUsd
+)
                         priceError = null  
                     } catch (e: Exception) {  
                         priceError =  
