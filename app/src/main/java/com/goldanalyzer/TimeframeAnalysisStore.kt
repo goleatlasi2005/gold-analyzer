@@ -63,7 +63,10 @@ object TimeframeAnalysisStore {
                 )
             }
 
-            val config = timeframeConfig(intervalMinutes)
+            val config = timeframeConfig(
+                intervalMinutes = intervalMinutes,
+                repository = repository
+            )
 
             val completedCandles = series.candles
                 .filter { it.closeTime <= nowMillis }
@@ -130,8 +133,10 @@ object TimeframeAnalysisStore {
     )
 
     private fun timeframeConfig(
-        intervalMinutes: Int?
+        intervalMinutes: Int?,
+        repository: MarketCandleRepository
     ): TimeframeConfig {
+
         return when (intervalMinutes) {
             5 -> TimeframeConfig(
                 label = "۵ دقیقه",
@@ -147,12 +152,17 @@ object TimeframeAnalysisStore {
                 longEmaPeriod = 200
             )
 
-            30 -> TimeframeConfig(
-                label = "۳۰ دقیقه",
-                weightPercent = 55,
-                minimumCandles = 200,
-                longEmaPeriod = 200
-            )
+            30 -> {
+                val isXauRepository =
+                    repository is XauCandleRepository
+
+                TimeframeConfig(
+                    label = "۳۰ دقیقه",
+                    weightPercent = 55,
+                    minimumCandles = if (isXauRepository) 160 else 200,
+                    longEmaPeriod = if (isXauRepository) 160 else 200
+                )
+            }
 
             60 -> TimeframeConfig(
                 label = "۱ ساعت",
