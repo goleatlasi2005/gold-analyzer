@@ -1,4 +1,3 @@
-
 package com.goldanalyzer
 
 import androidx.compose.foundation.clickable
@@ -171,6 +170,26 @@ fun TgjuGoldPricePanel() {
                     fontWeight = FontWeight.Bold
                 )
 
+                q.gold18ChangePercent?.let { percent ->
+                    val changeColor = when {
+                        percent > 0.0 -> TgjuPanelGreen
+                        percent < 0.0 -> TgjuPanelRed
+                        else -> TgjuPanelTextGray
+                    }
+
+                    Text(
+                        "درصد تغییر نسبت به روز قبل: ${
+                            String.format(
+                                Locale.US,
+                                "%+.2f",
+                                percent
+                            )
+                        }٪",
+                        color = changeColor,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+
                 Text(
                     "آخرین به‌روزرسانی: ${q.updatedAt}",
                     color = TgjuPanelTextGray,
@@ -235,30 +254,6 @@ fun TgjuGoldPricePanel() {
                     color = TgjuPanelDarkGold,
                     fontSize = 25.sp,
                     fontWeight = FontWeight.Bold
-                )
-
-                val changeColor = when {
-                    q.changeToman > 0 -> TgjuPanelGreen
-                    q.changeToman < 0 -> TgjuPanelRed
-                    else -> TgjuPanelTextGray
-                }
-
-                Text(
-                    "تغییر روزانه: ${
-                        String.format(
-                            Locale.US,
-                            "%+,.0f",
-                            q.changeToman
-                        )
-                    } تومان (${
-                        String.format(
-                            Locale.US,
-                            "%+.2f",
-                            q.changePercent
-                        )
-                    }٪)",
-                    color = changeColor,
-                    fontWeight = FontWeight.SemiBold
                 )
 
                 Row(
@@ -448,3 +443,4 @@ private fun SourceDrawer(
         }
     }
 }
+
