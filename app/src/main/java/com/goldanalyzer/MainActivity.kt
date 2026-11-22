@@ -2185,9 +2185,9 @@ else -> TextGray
 }
 
 val text = percent?.let {  
-    "تغییر نسبت به روز قبل: " +  
+    "درصد تغییر نسبت به روز قبل: " +
         String.format(Locale.US, "%+.2f%%", it)  
-} ?: "درصد تغییر روزانه در دسترس نیست"  
+} ?: "درصد تغییر نسبت به روز قبل در دسترس نیست"  
 
 Text(  
     text = text,  
@@ -2349,12 +2349,7 @@ val uriHandler = LocalUriHandler.current
                         fontWeight = FontWeight.Bold
                     )
 
-                    ChangePercentRow(
-                        calculatePercentChange(
-                            q.priceUsdPerTroyOunce,
-                            q.previousDailyCloseUsd
-                        )
-                    )
+                    ChangePercentRow(q.changePercent)
 
                     Text("منبع: ${q.source}", color = TextGray)
 
