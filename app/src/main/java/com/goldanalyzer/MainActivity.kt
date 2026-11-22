@@ -205,7 +205,8 @@ val isHourlyTimeframe =
     selectedTimeframe == "۱ ساعت" ||  
     selectedTimeframe == "۴ ساعت"  
 
-val requiredCandles = if (isHourlyTimeframe) 130 else 200  
+val requiredCandles = if (isHourlyTimeframe) 130 else 200
+    val xauRequiredCandles = if (selectedTimeframe == "۳۰ دقیقه") 160 else requiredCandles
 val longEmaPeriod = if (isHourlyTimeframe) 100 else 200  
 
 suspend fun loadAyiarPrice() {  
@@ -1243,9 +1244,9 @@ if (selectedMarket != "طلای ۱۸ عیار") {
                                 )
                             }
 
-                            activeXauTimeframeAnalysis.completedCandles.size < requiredCandles -> {
+                            activeXauTimeframeAnalysis.completedCandles.size < xauRequiredCandles -> {
                                 Text(
-                                    "برای محاسبه سیگنال حداقل $requiredCandles کندل کامل لازم است.",
+                                    "برای محاسبه سیگنال حداقل $xauRequiredCandles کندل کامل لازم است.",
                                     color = TextGray
                                 )
                                 Text(
@@ -1452,7 +1453,7 @@ val xauBollinger = remember(completedXauCandles) {
                     )
 
                     Text(
-                        "حداقل کندل موردنیاز: $requiredCandles",
+                        "حداقل کندل موردنیاز:$xauRequiredCandles",
                         color = TextGray
                     )
 
@@ -1545,7 +1546,7 @@ HorizontalDivider(color = Color(0xFFEAEAEA))
                         }
                     } else {
                         Text(
-                            "پس از دریافت حداقل $requiredCandles کندل کامل، تحلیل اندیکاتورها نمایش داده می‌شود.",
+                            "پس از دریافت حداقل $xauRequiredCandles کندل کامل، تحلیل اندیکاتورها نمایش داده می‌شود.",
                             color = TextGray
                         )
                     }
