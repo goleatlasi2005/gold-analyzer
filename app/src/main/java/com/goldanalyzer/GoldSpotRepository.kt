@@ -16,7 +16,8 @@ data class GoldSpotQuote(
     val observedAtMillis: Long,
     val ageSeconds: Long,
     val isFresh: Boolean,
-    val previousDailyCloseUsd: Double?
+    val previousDailyCloseUsd: Double?,
+    val changePercent: Double? = null
 )
 
 class GoldSpotRepository(
@@ -121,7 +122,8 @@ class GoldSpotRepository(
                     observedAtMillis = observedAt,
                     ageSeconds = age,
                     isFresh = fresh,
-                    previousDailyCloseUsd = getPreviousDailyClose()
+                    previousDailyCloseUsd = getPreviousDailyClose(),
+                    changePercent = null
                 )
             }
         }
