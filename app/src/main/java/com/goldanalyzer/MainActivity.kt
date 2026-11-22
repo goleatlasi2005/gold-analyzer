@@ -968,11 +968,12 @@ if (selectedMarket != "طلای ۱۸ عیار") {
                 fontWeight = FontWeight.Bold
             )
 
-            Text(
-                ChangePercentRow(talasanj.changePercent)
-                "زمان قیمت: ${formatTehranTime(talasanj.observedAtMillis)}",
-                color = TextGray
-            )
+            ChangePercentRow(talasanj.changePercent)
+
+Text(
+    "زمان قیمت: ${formatTehranTime(talasanj.observedAtMillis)}",
+    color = TextGray
+)
 
             Text(
                 if (talasanj.isFresh) "داده تازه"
