@@ -50,7 +50,7 @@ class MesghalRepository(
             MesghalQuote(
                 currentPriceRial = prices.mesghalToman * 10.0,
                 changeRial = 0.0,
-                changePercent = 0.0,
+                changePercent = prices.mesghalChangePercent ?: 0.0,
                 highRial = 0.0,
                 lowRial = 0.0,
                 observedAtMillis = observedAt,
