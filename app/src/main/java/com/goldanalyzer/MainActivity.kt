@@ -27,6 +27,7 @@ import kotlinx.coroutines.sync.withLock
 import java.text.SimpleDateFormat
 import java.time.DayOfWeek
 import java.time.LocalDate
+import java.time.Instant
 import java.time.ZoneId
 import java.time.ZonedDateTime
 import java.util.Date
@@ -155,6 +156,7 @@ var mediumTermCombinedError by remember {
 }  
 
 val goldRepository = remember { GoldSpotRepository() }
+val talasanjRepository = remember { TalasanjRepository() }
 // وضعیت سیگنال ترکیبی میان‌مدت انس جهانی
 var xauMediumTermCombined by remember {
     mutableStateOf<CombinedPeriodResult?>(null)
