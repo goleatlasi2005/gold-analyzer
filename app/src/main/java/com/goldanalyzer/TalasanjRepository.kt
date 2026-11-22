@@ -12,6 +12,9 @@ data class TalasanjPrices(
     val gold18Toman: Long,
     val mesghalToman: Long,
     val ounceUsd: Double,
+    val gold18ChangePercent: Double?,
+    val mesghalChangePercent: Double?,
+    val ounceChangePercent: Double?,
     val updatedAt: String,
     val marketOpen: Boolean
 )
@@ -44,14 +47,18 @@ class TalasanjRepository(
                 val root = JSONObject(body)
                 val prices = root.getJSONObject("prices")
 
-                val gold18 = prices.getJSONObject("gram18")
-                    .getLong("price")
+                val gold18Object = prices.getJSONObject("gram18")
+                val mesghalObject = prices.getJSONObject("mazaneh")
+                val ounceObject = prices.getJSONObject("ounce")
 
-                val mesghal = prices.getJSONObject("mazaneh")
-                    .getLong("price")
+                val gold18 = gold18Object.getLong("price")
+                val mesghal = mesghalObject.getLong("price")
+                val ounce = ounceObject.getDouble("price")
 
-                val ounce = prices.getJSONObject("ounce")
-                    .getDouble("price")
+                fun readChangePercent(item: JSONObject): Double? {
+                    return item.optDouble("change_pct", Double.NaN)
+                        .takeIf { it.isFinite() }
+                }
 
                 if (gold18 <= 0L || mesghal <= 0L || ounce <= 0.0) {
                     error("قیمت دریافتی طلاسنج معتبر نیست.")
@@ -61,6 +68,9 @@ class TalasanjRepository(
                     gold18Toman = gold18,
                     mesghalToman = mesghal,
                     ounceUsd = ounce,
+                    gold18ChangePercent = readChangePercent(gold18Object),
+                    mesghalChangePercent = readChangePercent(mesghalObject),
+                    ounceChangePercent = readChangePercent(ounceObject),
                     updatedAt = root.optString("updated_at", ""),
                     marketOpen = root.optBoolean("market_open", false)
                 )
