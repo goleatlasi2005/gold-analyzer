@@ -969,6 +969,7 @@ if (selectedMarket != "طلای ۱۸ عیار") {
             )
 
             Text(
+                ChangePercentRow(talasanj.changePercent)
                 "زمان قیمت: ${formatTehranTime(talasanj.observedAtMillis)}",
                 color = TextGray
             )
