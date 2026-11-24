@@ -305,38 +305,49 @@ fun Mt5SourceDrawer() {
 
                     HorizontalDivider(color = Color(0xFFE9DFCA))
 
-                    Text(
-                        "آخرین کندل‌های دریافتی",
-                        color = Mt5Gold,
-                        fontWeight = FontWeight.Bold
-                    )
+                    Button(
+    onClick = { candlesExpanded = !candlesExpanded },
+    modifier = Modifier.fillMaxWidth()
+) {
+    Text(
+        if (candlesExpanded) "بستن اطلاعات کندل‌ها"
+        else "نمایش اطلاعات کندل‌ها"
+    )
+}
 
-                    listOf("M5", "M15", "M30").forEach { timeframe ->
-                        val candle = data.candles[timeframe]
+if (candlesExpanded) {
+    Text(
+        "آخرین کندل‌های دریافتی",
+        color = Mt5Gold,
+        fontWeight = FontWeight.Bold
+    )
 
-                        if (candle != null) {
-                            Text(
-                                "$timeframe  |  باز: ${
-                                    String.format(Locale.US, "%.2f", candle.open)
-                                }  بیشینه: ${
-                                    String.format(Locale.US, "%.2f", candle.high)
-                                }  کمینه: ${
-                                    String.format(Locale.US, "%.2f", candle.low)
-                                }  بسته: ${
-                                    String.format(Locale.US, "%.2f", candle.close)
-                                }",
-                                color = Color(0xFF292929),
-                                fontSize = 12.sp
-                            )
-                        } else {
-                            Text(
-                                "$timeframe: کندلی دریافت نشد",
-                                color = Mt5Gray,
-                                fontSize = 12.sp
-                            )
-                        }
-                    }
-                }
+    listOf("M5", "M15", "M30").forEach { timeframe ->
+        val candle = data.candles[timeframe]
+
+        if (candle != null) {
+            Text(
+                "$timeframe  |  باز: ${
+                    String.format(Locale.US, "%.2f", candle.open)
+                }  بیشینه: ${
+                    String.format(Locale.US, "%.2f", candle.high)
+                }  کمینه: ${
+                    String.format(Locale.US, "%.2f", candle.low)
+                }  بسته: ${
+                    String.format(Locale.US, "%.2f", candle.close)
+                }",
+                color = Color(0xFF292929),
+                fontSize = 12.sp
+            )
+        } else {
+            Text(
+                "$timeframe: کندلی دریافت نشد",
+                color = Mt5Gray,
+                fontSize = 12.sp
+            )
+        }
+    }
+}
 
                 error?.let {
                     Text("خطا: $it", color = Mt5Red, fontSize = 13.sp)
