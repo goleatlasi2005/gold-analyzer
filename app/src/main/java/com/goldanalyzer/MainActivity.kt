@@ -890,8 +890,7 @@ if (selectedMarket != "طلای ۱۸ عیار") {
     quote = spotQuote,
     loading = priceLoading
 )
-                                                        KitcoSourceDrawer()
-                                                        InvestingSourceDrawer()
+Mt5SourceDrawer()
                         }  
 
                         "صندوق طلای عیار" -> {  
