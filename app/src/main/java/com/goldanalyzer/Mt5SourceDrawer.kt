@@ -162,6 +162,7 @@ fun Mt5SourceDrawer() {
         mutableStateOf(!preferences.getString("token", "").isNullOrBlank())
     }
     var snapshot by remember { mutableStateOf<Mt5BridgeSnapshot?>(null) }
+    var candlesExpanded by remember { mutableStateOf(false) }
     var loading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
 
