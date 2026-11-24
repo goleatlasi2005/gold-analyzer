@@ -175,7 +175,11 @@ fun Mt5SourceDrawer() {
                 try {
                     snapshot = Mt5BridgeClient.fetch(host, token)
                     error = null
+                    showConnectionSettings = false
                 } catch (e: Exception) {
+                    if (e.message?.contains("401") == true) {
+    showConnectionSettings = true
+                    }
                     error = e.message ?: "ارتباط با پل MT5 برقرار نشد"
                 } finally {
                     loading = false
@@ -223,7 +227,7 @@ fun Mt5SourceDrawer() {
 
             if (expanded) {
                 HorizontalDivider(color = Color(0xFFE9DFCA))
-
+if (showConnectionSettings) {
                 OutlinedTextField(
                     value = host,
                     onValueChange = { host = it },
@@ -256,7 +260,7 @@ fun Mt5SourceDrawer() {
                 ) {
                     Text("ذخیره تنظیمات و اتصال")
                 }
-
+}
                 if (loading && snapshot == null) {
                     CircularProgressIndicator(color = Mt5Gold)
                     Text("در حال اتصال به متاتریدر...")
