@@ -1295,7 +1295,8 @@ if (selectedMarket != "طلای ۱۸ عیار") {
                 period = shortTermCombined,
                 loading = shortTermCombinedLoading,
                 error = shortTermCombinedError,
-                primaryTimeframeLabel = "۳۰ دقیقه"
+                primaryTimeframeLabel = "۳۰ دقیقه",
+                oneWayMarket = true
             )
         }
 
@@ -1341,7 +1342,8 @@ if (selectedMarket != "طلای ۱۸ عیار") {
             period = mediumTermCombined,
             loading = mediumTermCombinedLoading,
             error = mediumTermCombinedError,
-            primaryTimeframeLabel = "روزانه"
+            primaryTimeframeLabel = "روزانه",
+            oneWayMarket = true
         )
     }
 
