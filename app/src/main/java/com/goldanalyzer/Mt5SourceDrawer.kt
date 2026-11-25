@@ -1,4 +1,3 @@
-
 package com.goldanalyzer
 
 import android.content.Context
@@ -54,6 +53,8 @@ private data class Mt5BridgeSnapshot(
     val server: String,
     val bid: Double,
     val ask: Double,
+    val previousDailyClose: Double?,
+    val dailyChangePercent: Double?,
     val candles: Map<String, Mt5CandleSnapshot?>
 )
 
@@ -114,6 +115,15 @@ private object Mt5BridgeClient {
                 val candleRoot = root.optJSONObject("candles")
                     ?: error("اطلاعات کندل در پاسخ MT5 وجود ندارد")
 
+                val previousClose = root.optJSONObject("daily")
+                    ?.optDouble("previous_close", Double.NaN)
+                    ?.takeIf { it.isFinite() && it > 0.0 }
+
+                val bid = tick.optDouble("bid", 0.0)
+                val dailyChange = previousClose?.let { close ->
+                    if (bid > 0.0) ((bid - close) / close) * 100.0 else null
+                }
+
                 fun latest(name: String): Mt5CandleSnapshot? {
                     val array = candleRoot.optJSONArray(name) ?: return null
                     if (array.length() == 0) return null
@@ -128,14 +138,21 @@ private object Mt5BridgeClient {
                     )
                 }
 
-                private data class Mt5BridgeSnapshot(
-    val server: String,
-    val bid: Double,
-    val ask: Double,
-    val previousDailyClose: Double?,
-    val dailyChangePercent: Double?,
-    val candles: Map<String, Mt5CandleSnapshot?>
-)
+                Mt5BridgeSnapshot(
+                    server = root.optString("server", "MetaTrader 5"),
+                    bid = bid,
+                    ask = tick.optDouble("ask", 0.0),
+                    previousDailyClose = previousClose,
+                    dailyChangePercent = dailyChange,
+                    candles = mapOf(
+                        "M5" to latest("M5"),
+                        "M15" to latest("M15"),
+                        "M30" to latest("M30")
+                    )
+                )
+            }
+        }
+}
 
 @Composable
 fun Mt5SourceDrawer() {
@@ -173,7 +190,7 @@ fun Mt5SourceDrawer() {
                     showConnectionSettings = false
                 } catch (e: Exception) {
                     if (e.message?.contains("401") == true) {
-    showConnectionSettings = true
+                        showConnectionSettings = true
                     }
                     error = e.message ?: "ارتباط با پل MT5 برقرار نشد"
                 } finally {
@@ -222,40 +239,42 @@ fun Mt5SourceDrawer() {
 
             if (expanded) {
                 HorizontalDivider(color = Color(0xFFE9DFCA))
-if (showConnectionSettings) {
-                OutlinedTextField(
-                    value = host,
-                    onValueChange = { host = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text("IP کامپیوتر") },
-                    singleLine = true
-                )
 
-                OutlinedTextField(
-                    value = token,
-                    onValueChange = { token = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text("رمز دسترسی پل MT5") },
-                    singleLine = true,
-                    visualTransformation = PasswordVisualTransformation()
-                )
+                if (showConnectionSettings) {
+                    OutlinedTextField(
+                        value = host,
+                        onValueChange = { host = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("IP کامپیوتر") },
+                        singleLine = true
+                    )
 
-                Button(
-                    onClick = {
-                        preferences.edit()
-                            .putString("host", host.trim())
-                            .putString("token", token.trim())
-                            .apply()
+                    OutlinedTextField(
+                        value = token,
+                        onValueChange = { token = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("رمز دسترسی پل MT5") },
+                        singleLine = true,
+                        visualTransformation = PasswordVisualTransformation()
+                    )
 
-                        snapshot = null
-                        error = null
-                        connectedMode = true
-                    },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("ذخیره تنظیمات و اتصال")
+                    Button(
+                        onClick = {
+                            preferences.edit()
+                                .putString("host", host.trim())
+                                .putString("token", token.trim())
+                                .apply()
+
+                            snapshot = null
+                            error = null
+                            connectedMode = true
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("ذخیره تنظیمات و اتصال")
+                    }
                 }
-}
+
                 if (loading && snapshot == null) {
                     CircularProgressIndicator(color = Mt5Gold)
                     Text("در حال اتصال به متاتریدر...")
@@ -297,57 +316,82 @@ if (showConnectionSettings) {
                     }
 
                     Text(
-                        "اختلاف قیمت: ${
-                            String.format(Locale.US, "%.2f", data.ask - data.bid)
-                        }",
+                        "اختلاف قیمت: ${String.format(Locale.US, "%.2f", data.ask - data.bid)}",
                         color = Mt5Gray
                     )
+
+                    val dailyChange = data.dailyChangePercent
+                    if (dailyChange != null) {
+                        Text(
+                            "تغییر روزانه: ${String.format(Locale.US, "%+.2f%%", dailyChange)}",
+                            color = when {
+                                dailyChange > 0.0 -> Mt5Green
+                                dailyChange < 0.0 -> Mt5Red
+                                else -> Mt5Gray
+                            },
+                            fontWeight = FontWeight.Bold
+                        )
+                        data.previousDailyClose?.let { close ->
+                            Text(
+                                "مبنای محاسبه: بسته‌شدن روز قبل ${String.format(Locale.US, "%.2f", close)}",
+                                color = Mt5Gray,
+                                fontSize = 11.sp
+                            )
+                        }
+                    } else {
+                        Text(
+                            "تغییر روزانه: اطلاعات کندل روزانه قبل در دسترس نیست",
+                            color = Mt5Gray,
+                            fontSize = 12.sp
+                        )
+                    }
 
                     HorizontalDivider(color = Color(0xFFE9DFCA))
 
                     Button(
-    onClick = { candlesExpanded = !candlesExpanded },
-    modifier = Modifier.fillMaxWidth()
-) {
-    Text(
-        if (candlesExpanded) "بستن اطلاعات کندل‌ها"
-        else "نمایش اطلاعات کندل‌ها"
-    )
-}
+                        onClick = { candlesExpanded = !candlesExpanded },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            if (candlesExpanded) "بستن اطلاعات کندل‌ها"
+                            else "نمایش اطلاعات کندل‌ها"
+                        )
+                    }
 
-if (candlesExpanded) {
-    Text(
-        "آخرین کندل‌های دریافتی",
-        color = Mt5Gold,
-        fontWeight = FontWeight.Bold
-    )
+                    if (candlesExpanded) {
+                        Text(
+                            "آخرین کندل‌های دریافتی",
+                            color = Mt5Gold,
+                            fontWeight = FontWeight.Bold
+                        )
 
-    listOf("M5", "M15", "M30").forEach { timeframe ->
-        val candle = data.candles[timeframe]
+                        listOf("M5", "M15", "M30").forEach { timeframe ->
+                            val candle = data.candles[timeframe]
 
-        if (candle != null) {
-            Text(
-                "$timeframe  |  باز: ${
-                    String.format(Locale.US, "%.2f", candle.open)
-                }  بیشینه: ${
-                    String.format(Locale.US, "%.2f", candle.high)
-                }  کمینه: ${
-                    String.format(Locale.US, "%.2f", candle.low)
-                }  بسته: ${
-                    String.format(Locale.US, "%.2f", candle.close)
-                }",
-                color = Color(0xFF292929),
-                fontSize = 12.sp
-            )
-        } else {
-            Text(
-                "$timeframe: کندلی دریافت نشد",
-                color = Mt5Gray,
-                fontSize = 12.sp
-            )
-        }
-    }
-}
+                            if (candle != null) {
+                                Text(
+                                    "$timeframe  |  باز: ${
+                                        String.format(Locale.US, "%.2f", candle.open)
+                                    }  بیشینه: ${
+                                        String.format(Locale.US, "%.2f", candle.high)
+                                    }  کمینه: ${
+                                        String.format(Locale.US, "%.2f", candle.low)
+                                    }  بسته: ${
+                                        String.format(Locale.US, "%.2f", candle.close)
+                                    }",
+                                    color = Color(0xFF292929),
+                                    fontSize = 12.sp
+                                )
+                            } else {
+                                Text(
+                                    "$timeframe: کندلی دریافت نشد",
+                                    color = Mt5Gray,
+                                    fontSize = 12.sp
+                                )
+                            }
+                        }
+                    }
+                }
 
                 error?.let {
                     Text("خطا: $it", color = Mt5Red, fontSize = 13.sp)
@@ -361,5 +405,4 @@ if (candlesExpanded) {
             }
         }
     }
-}
 }
