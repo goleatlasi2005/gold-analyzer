@@ -48,7 +48,27 @@ class XauCandleRepository(
             .get()
             .build()
 
-        httpClient.newCall(request).execute().use { response ->
+                // در خطاهای موقت شبکه، دریافت را حداکثر دو بار تکرار می‌کنیم.
+        var response: Response? = null
+        var lastNetworkError: IOException? = null
+
+        for (attempt in 0..2) {
+            try {
+                response = httpClient.newCall(request).execute()
+                lastNetworkError = null
+                break
+            } catch (e: IOException) {
+                lastNetworkError = e
+                if (attempt < 2) {
+                    delay(700L * (attempt + 1))
+                }
+            }
+        }
+
+        val receivedResponse = response
+            ?: throw (lastNetworkError ?: IOException("ارتباط با سرور انس برقرار نشد"))
+
+        receivedResponse.use { response ->
 
             if (!response.isSuccessful) {
                 error("خطای دریافت کندل انس: ${response.code}")
