@@ -2041,7 +2041,7 @@ Card(
             )  
         }  
 
-        if (signal.type == SignalType.BUY) {  
+        if (showRiskLevels && signal.type != SignalType.HOLD) {
             Text(  
                 "حد ضرر: ${formatPrice(signal.stopLoss)}",  
                 color = Red  
