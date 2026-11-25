@@ -128,19 +128,14 @@ private object Mt5BridgeClient {
                     )
                 }
 
-                Mt5BridgeSnapshot(
-                    server = root.optString("server", "MetaTrader 5"),
-                    bid = tick.optDouble("bid", 0.0),
-                    ask = tick.optDouble("ask", 0.0),
-                    candles = mapOf(
-                        "M5" to latest("M5"),
-                        "M15" to latest("M15"),
-                        "M30" to latest("M30")
-                    )
-                )
-            }
-        }
-}
+                private data class Mt5BridgeSnapshot(
+    val server: String,
+    val bid: Double,
+    val ask: Double,
+    val previousDailyClose: Double?,
+    val dailyChangePercent: Double?,
+    val candles: Map<String, Mt5CandleSnapshot?>
+)
 
 @Composable
 fun Mt5SourceDrawer() {
