@@ -6,6 +6,9 @@ import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONObject
+import kotlinx.coroutines.delay
+import java.io.IOException
+import okhttp3.Response
 
 class XauCandleRepository(
     private val httpClient: OkHttpClient = OkHttpClient()
