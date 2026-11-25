@@ -27,10 +27,10 @@ class XauCandleRepository(
         }
 
         val range = when (intervalMinutes) {
-            5, 15, 30 -> "5d"
-            60 -> "1mo"
-            240 -> "3mo"
-            else -> "1y"
+    5, 15 -> "5d"
+    30, 60 -> "1mo"
+    240 -> "3mo"
+    else -> "1y"
         }
 
         val request = Request.Builder()
