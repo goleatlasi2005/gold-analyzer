@@ -1739,6 +1739,7 @@ period: CombinedPeriodResult?,
 loading: Boolean,
 error: String?,
 primaryTimeframeLabel: String,
+oneWayMarket: Boolean = false,
 priceInUsd: Boolean = false
 ) {
 if (period == null) {
@@ -1849,8 +1850,9 @@ if (period.combinedSignal == null) {
         signal = period.combinedSignal,  
         candleCount = primary?.candleCount ?: 0,  
         candleTime = primary?.lastCandleTime,  
-        oneWayMarket = true,
-        priceInUsd = priceInUsd
+        oneWayMarket = oneWayMarket,
+        priceInUsd = priceInUsd,
+        showRiskLevels = false
     )  
 }  
 
