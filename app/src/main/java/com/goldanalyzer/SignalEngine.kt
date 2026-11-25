@@ -34,9 +34,18 @@ object SignalEngine {
         longEmaPeriod: Int = 200
     ): TradingSignal? {
 
+        if (minimumCandles <= 0 || longEmaPeriod <= 0) {
+            return null
+        }
+
         val validCandles = candles
             .filter { it.closeTime <= nowMillis }
             .filter {
+                it.open.isFinite() &&
+                it.high.isFinite() &&
+                it.low.isFinite() &&
+                it.close.isFinite() &&
+                it.volume.isFinite() &&
                 it.open > 0.0 &&
                 it.high > 0.0 &&
                 it.low > 0.0 &&
@@ -58,8 +67,10 @@ object SignalEngine {
 
         val ema20 = TechnicalIndicators.ema(closes, 20)[last]
             ?: return null
+
         val ema50 = TechnicalIndicators.ema(closes, 50)[last]
             ?: return null
+
         val emaLong = TechnicalIndicators.ema(
             closes,
             longEmaPeriod
@@ -84,7 +95,12 @@ object SignalEngine {
         val ichimoku = AdvancedIndicators.ichimoku(validCandles)[last]
         val fibonacci = AdvancedIndicators.fibonacci(validCandles)
 
-        if (price <= 0.0 || atr <= 0.0 || !atr.isFinite()) {
+        if (
+            price <= 0.0 ||
+            atr <= 0.0 ||
+            !price.isFinite() ||
+            !atr.isFinite()
+        ) {
             return null
         }
 
@@ -94,25 +110,30 @@ object SignalEngine {
         var score = 0
         val reasons = mutableListOf<String>()
 
+        // RSI
         when {
             rsi >= 55.0 && rsi < 70.0 -> {
                 score += 8
                 reasons.add("RSI مومنتوم صعودی را تأیید می‌کند")
             }
+
             rsi > 30.0 && rsi <= 45.0 -> {
                 score -= 8
                 reasons.add("RSI مومنتوم نزولی را تأیید می‌کند")
             }
+
             rsi >= 70.0 -> {
                 score -= 4
                 reasons.add("RSI وارد محدوده اشباع خرید شده است")
             }
+
             rsi <= 30.0 -> {
                 score += 4
                 reasons.add("RSI وارد محدوده اشباع فروش شده است")
             }
         }
 
+        // EMA trend
         when {
             ema20 > ema50 && ema50 > emaLong -> {
                 score += 15
@@ -120,16 +141,19 @@ object SignalEngine {
                     "چیدمان EMA20، EMA50 و EMA$longEmaPeriod صعودی است"
                 )
             }
+
             ema20 < ema50 && ema50 < emaLong -> {
                 score -= 15
                 reasons.add(
                     "چیدمان EMA20، EMA50 و EMA$longEmaPeriod نزولی است"
                 )
             }
+
             ema20 > ema50 -> {
                 score += 6
                 reasons.add("EMA20 بالاتر از EMA50 است")
             }
+
             ema20 < ema50 -> {
                 score -= 6
                 reasons.add("EMA20 پایین‌تر از EMA50 است")
@@ -144,6 +168,7 @@ object SignalEngine {
             reasons.add("قیمت پایین‌تر از EMA20 قرار دارد")
         }
 
+        // MACD
         if (macd.macd > macd.signal) {
             score += 10
             reasons.add("MACD وضعیت صعودی دارد")
@@ -160,6 +185,7 @@ object SignalEngine {
             reasons.add("هیستوگرام MACD منفی است")
         }
 
+        // ADX
         if (adx != null) {
             if (adx >= 25.0) {
                 when {
@@ -167,6 +193,7 @@ object SignalEngine {
                         score += 8
                         reasons.add("ADX قدرت روند صعودی را تأیید می‌کند")
                     }
+
                     ema20 < ema50 -> {
                         score -= 8
                         reasons.add("ADX قدرت روند نزولی را تأیید می‌کند")
@@ -179,6 +206,7 @@ object SignalEngine {
             }
         }
 
+        // Ichimoku
         val tenkan = ichimoku.tenkan
         val kijun = ichimoku.kijun
         val senkouA = ichimoku.senkouA
@@ -203,6 +231,7 @@ object SignalEngine {
                     score += 6
                     reasons.add("قیمت بالاتر از ابر ایچیموکو است")
                 }
+
                 price < cloudBottom -> {
                     score -= 6
                     reasons.add("قیمت پایین‌تر از ابر ایچیموکو است")
@@ -210,25 +239,30 @@ object SignalEngine {
             }
         }
 
+        // Bollinger Bands
         when {
             price > bands.upper -> {
                 score += 3
                 reasons.add("قیمت بالاتر از باند بالایی بولینگر است")
             }
+
             price < bands.lower -> {
                 score -= 3
                 reasons.add("قیمت پایین‌تر از باند پایینی بولینگر است")
             }
+
             price > bands.middle -> {
                 score += 3
                 reasons.add("قیمت بالاتر از میانگین بولینگر است")
             }
+
             price < bands.middle -> {
                 score -= 3
                 reasons.add("قیمت پایین‌تر از میانگین بولینگر است")
             }
         }
 
+        // Stochastic
         if (previousStochastic != null) {
             when {
                 previousStochastic < 20.0 &&
@@ -236,6 +270,7 @@ object SignalEngine {
                     score += 6
                     reasons.add("استوکاستیک از اشباع فروش خارج شده است")
                 }
+
                 previousStochastic > 80.0 &&
                     currentStochastic <= 80.0 -> {
                     score -= 6
@@ -244,26 +279,43 @@ object SignalEngine {
             }
         }
 
+        // Fibonacci support and resistance
         if (fibonacci != null) {
-            val nearest = fibonacci.levels.values.minByOrNull {
+            val nearestLevel = fibonacci.levels.values.minByOrNull {
                 abs(price - it)
             }
 
-            if (nearest != null) {
+            if (nearestLevel != null) {
                 val tolerance = maxOf(atr * 0.35, price * 0.002)
+                val distance = abs(price - nearestLevel)
 
-                if (abs(price - nearest) <= tolerance) {
-                    if (price >= nearest) {
-                        score += 5
-                        reasons.add("قیمت به سطح حمایتی فیبوناچی نزدیک است")
-                    } else {
-                        score -= 5
-                        reasons.add("قیمت به سطح مقاومتی فیبوناچی نزدیک است")
+                if (distance <= tolerance) {
+                    when {
+                        price > nearestLevel -> {
+                            score += 5
+                            reasons.add(
+                                "قیمت به سطح حمایتی فیبوناچی نزدیک است"
+                            )
+                        }
+
+                        price < nearestLevel -> {
+                            score -= 5
+                            reasons.add(
+                                "قیمت به سطح مقاومتی فیبوناچی نزدیک است"
+                            )
+                        }
+
+                        else -> {
+                            reasons.add(
+                                "قیمت روی یکی از سطوح فیبوناچی قرار دارد"
+                            )
+                        }
                     }
                 }
             }
         }
 
+        // Volume confirmation
         val previousVolumes = validCandles
             .dropLast(1)
             .takeLast(20)
@@ -279,25 +331,33 @@ object SignalEngine {
                 when {
                     current.close > current.open -> {
                         score += 6
-                        reasons.add("حجم معاملات و کندل صعودی تأییدکننده‌اند")
+                        reasons.add(
+                            "حجم معاملات و کندل صعودی تأییدکننده‌اند"
+                        )
                     }
+
                     current.close < current.open -> {
                         score -= 6
-                        reasons.add("حجم معاملات و کندل نزولی تأییدکننده‌اند")
+                        reasons.add(
+                            "حجم معاملات و کندل نزولی تأییدکننده‌اند"
+                        )
                     }
                 }
             }
         }
 
+        // Market structure
         when (structure) {
             "HH/HL" -> {
                 score += 10
                 reasons.add("ساختار بازار صعودی است: سقف و کف بالاتر")
             }
+
             "LH/LL" -> {
                 score -= 10
                 reasons.add("ساختار بازار نزولی است: سقف و کف پایین‌تر")
             }
+
             else -> {
                 reasons.add("ساختار بازار هنوز جهت مشخصی ندارد")
             }
@@ -314,13 +374,16 @@ object SignalEngine {
         val trend = when {
             ema20 > ema50 && ema50 > emaLong &&
                 (adx ?: 0.0) >= 20.0 -> "صعودی قوی"
+
             ema20 < ema50 && ema50 < emaLong &&
                 (adx ?: 0.0) >= 20.0 -> "نزولی قوی"
+
             ema20 > ema50 -> "صعودی"
             ema20 < ema50 -> "نزولی"
             else -> "خنثی"
         }
 
+        // Risk management
         val stopDistance = atr * 1.5
 
         val stopLoss = when (type) {
@@ -368,69 +431,137 @@ object SignalEngine {
         )
     }
 
+    /**
+     * Average Directional Index using Wilder smoothing.
+     * ADX measures trend strength; EMA alignment determines direction.
+     */
     private fun calculateAdx(
         candles: List<Candle>,
         period: Int = 14
     ): Double? {
-        if (candles.size < period * 2 + 1) return null
 
-        val dxValues = mutableListOf<Double>()
+        if (period <= 0 || candles.size < period * 2) {
+            return null
+        }
 
-        for (end in period until candles.size) {
-            var plusDmSum = 0.0
-            var minusDmSum = 0.0
-            var trSum = 0.0
+        val trueRanges = DoubleArray(candles.size)
+        val positiveDm = DoubleArray(candles.size)
+        val negativeDm = DoubleArray(candles.size)
 
-            val start = end - period + 1
+        for (i in 1 until candles.size) {
+            val current = candles[i]
+            val previous = candles[i - 1]
 
-            for (i in start..end) {
-                val current = candles[i]
-                val previous = candles[i - 1]
+            val upMove = current.high - previous.high
+            val downMove = previous.low - current.low
 
-                val upMove = current.high - previous.high
-                val downMove = previous.low - current.low
-
-                val plusDm = if (
-                    upMove > downMove && upMove > 0.0
-                ) upMove else 0.0
-
-                val minusDm = if (
-                    downMove > upMove && downMove > 0.0
-                ) downMove else 0.0
-
-                val trueRange = maxOf(
-                    current.high - current.low,
-                    abs(current.high - previous.close),
-                    abs(current.low - previous.close)
-                )
-
-                plusDmSum += plusDm
-                minusDmSum += minusDm
-                trSum += trueRange
+            positiveDm[i] = if (
+                upMove > downMove && upMove > 0.0
+            ) {
+                upMove
+            } else {
+                0.0
             }
 
-            if (trSum <= 0.0) continue
+            negativeDm[i] = if (
+                downMove > upMove && downMove > 0.0
+            ) {
+                downMove
+            } else {
+                0.0
+            }
 
-            val plusDi = plusDmSum / trSum * 100.0
-            val minusDi = minusDmSum / trSum * 100.0
-            val denominator = plusDi + minusDi
+            trueRanges[i] = maxOf(
+                current.high - current.low,
+                abs(current.high - previous.close),
+                abs(current.low - previous.close)
+            )
 
-            if (denominator > 0.0) {
-                dxValues.add(
-                    abs(plusDi - minusDi) / denominator * 100.0
-                )
+            if (
+                !trueRanges[i].isFinite() ||
+                !positiveDm[i].isFinite() ||
+                !negativeDm[i].isFinite()
+            ) {
+                return null
             }
         }
 
-        return dxValues
-            .takeLast(period)
-            .takeIf { it.isNotEmpty() }
-            ?.average()
+        var smoothedTr = 0.0
+        var smoothedPositiveDm = 0.0
+        var smoothedNegativeDm = 0.0
+
+        for (i in 1..period) {
+            smoothedTr += trueRanges[i]
+            smoothedPositiveDm += positiveDm[i]
+            smoothedNegativeDm += negativeDm[i]
+        }
+
+        val dxValues = mutableListOf<Double>()
+
+        for (i in period until candles.size) {
+
+            if (i > period) {
+                smoothedTr =
+                    smoothedTr - smoothedTr / period + trueRanges[i]
+
+                smoothedPositiveDm =
+                    smoothedPositiveDm -
+                    smoothedPositiveDm / period +
+                    positiveDm[i]
+
+                smoothedNegativeDm =
+                    smoothedNegativeDm -
+                    smoothedNegativeDm / period +
+                    negativeDm[i]
+            }
+
+            if (
+                !smoothedTr.isFinite() ||
+                !smoothedPositiveDm.isFinite() ||
+                !smoothedNegativeDm.isFinite()
+            ) {
+                return null
+            }
+
+            if (smoothedTr <= 0.0) {
+                dxValues.add(0.0)
+                continue
+            }
+
+            val plusDi = smoothedPositiveDm / smoothedTr * 100.0
+            val minusDi = smoothedNegativeDm / smoothedTr * 100.0
+            val denominator = plusDi + minusDi
+
+            val dx = if (denominator > 0.0) {
+                abs(plusDi - minusDi) / denominator * 100.0
+            } else {
+                0.0
+            }
+
+            if (!dx.isFinite()) return null
+
+            dxValues.add(dx)
+        }
+
+        if (dxValues.size < period) return null
+
+        // Initial ADX: average of the first period DX values.
+        var adx = dxValues.take(period).average()
+
+        // Subsequent ADX values: Wilder smoothing.
+        for (i in period until dxValues.size) {
+            adx = (
+                adx * (period - 1) + dxValues[i]
+            ) / period
+        }
+
+        return adx.takeIf { it.isFinite() }
     }
 
     private fun detectMarketStructure(
         candles: List<Candle>
     ): String {
+
         if (candles.size < 40) return "نامشخص"
 
         val recent = candles.takeLast(40)
@@ -445,8 +576,10 @@ object SignalEngine {
         return when {
             secondHigh > firstHigh && secondLow > firstLow ->
                 "HH/HL"
+
             secondHigh < firstHigh && secondLow < firstLow ->
                 "LH/LL"
+
             else -> "خنثی"
         }
     }
