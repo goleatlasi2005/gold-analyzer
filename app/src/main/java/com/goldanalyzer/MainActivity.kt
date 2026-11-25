@@ -1949,7 +1949,8 @@ signal: TradingSignal,
 candleCount: Int,
 candleTime: Long?,
 oneWayMarket: Boolean = false,
-priceInUsd: Boolean = false
+priceInUsd: Boolean = false,
+showRiskLevels: Boolean = true    
 ) {
     val formatPrice: (Double) -> String = { value ->
     if (priceInUsd) {
