@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.text.SimpleDateFormat
@@ -239,6 +240,8 @@ suspend fun loadAyiarChart() {
         } else {  
             ayiarCandles = newCandles  
         }  
+    } catch (e: CancellationException) {
+        throw e
     } catch (e: Exception) {  
         chartError = e.message ?: "خطا در دریافت نمودار"  
     } finally {  
@@ -263,6 +266,8 @@ suspend fun loadXauChart() {
         } else {
             xauCandles = newCandles
         }
+    } catch (e: CancellationException) {
+        throw e
     } catch (e: Exception) {
         chartError = e.message ?: "خطا در دریافت نمودار انس"
     } finally {
@@ -279,6 +284,8 @@ suspend fun refreshShortTermCombined() {
                 CombinedSignalCoordinator.loadShortTerm(  
                     repository = ayiarMarketRepository,  
                 )  
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {  
             shortTermCombinedError =  
                 e.message ?: "خطا در محاسبه سیگنال کوتاه‌مدت"  
@@ -297,6 +304,8 @@ suspend fun refreshXauShortTermCombined() {
                 CombinedSignalCoordinator.loadShortTerm(
                     repository = xauCandleRepository
                 )
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             xauShortTermCombinedError =
                 e.message ?: "خطا در محاسبه سیگنال کوتاه‌مدت انس"
@@ -315,6 +324,8 @@ suspend fun refreshMediumTermCombined() {
                 CombinedSignalCoordinator.loadMediumTerm(  
                     repository = ayiarMarketRepository,
                 )  
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {  
             mediumTermCombinedError =  
                 e.message ?: "خطا در محاسبه سیگنال میان‌مدت"  
@@ -333,6 +344,8 @@ suspend fun refreshXauMediumTermCombined() {
                 CombinedSignalCoordinator.loadMediumTerm(
                     repository = xauCandleRepository
                 )
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             xauMediumTermCombinedError =
                 e.message ?: "خطا در محاسبه سیگنال میان‌مدت انس"
@@ -367,11 +380,15 @@ suspend fun refreshSelectedMarket() {
                         previousDailyCloseUsd = spotQuote?.previousDailyCloseUsd,
                         changePercent = talasanj.ounceChangePercent
                     )
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (e: Exception) {
                     try {
                         spotQuote = goldRepository.getXauUsdSpot()
                         priceError =
                             "دریافت از طلاسنج ناموفق بود؛ قیمت از منبع پشتیبان دریافت شد."
+                    } catch (fallbackError: CancellationException) {
+                        throw fallbackError
                     } catch (fallbackError: Exception) {
                         priceError =
                             fallbackError.message
@@ -387,6 +404,8 @@ suspend fun refreshSelectedMarket() {
                 priceLoading = true
                 try {
                     loadAyiarPrice()
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (e: Exception) {
                     priceError =
                         e.message ?: "خطا در دریافت قیمت عیار"
@@ -417,6 +436,8 @@ priceError = when {
         "هشدار: آخرین قیمت مظنه قدیمی است."
     else -> null
 }
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (e: Exception) {
                     priceError =
                         e.message ?: "خطا در دریافت قیمت مظنه"
@@ -467,11 +488,15 @@ spotQuote = GoldSpotQuote(
 changePercent = talasanj.ounceChangePercent
 )
                         priceError = null  
+                    } catch (e: CancellationException) {
+                        throw e
                     } catch (e: Exception) {
     try {
         spotQuote = goldRepository.getXauUsdSpot()
         priceError =
             "طلاسنج در دسترس نیست؛ قیمت از منبع پشتیبان دریافت شد."
+    } catch (fallbackError: CancellationException) {
+        throw fallbackError
     } catch (fallbackError: Exception) {
         priceError =
             fallbackError.message ?: e.message ?: "خطا در دریافت قیمت انس"
@@ -493,6 +518,8 @@ changePercent = talasanj.ounceChangePercent
                         try {  
                             loadAyiarPrice()  
                             priceError = null  
+                        } catch (e: CancellationException) {
+                            throw e
                         } catch (e: Exception) {  
                             priceError =  
                                 e.message ?: "خطا در دریافت قیمت عیار"  
@@ -529,6 +556,8 @@ priceError = when {
     else -> null
 }
 
+                    } catch (e: CancellationException) {
+                        throw e
                     } catch (e: Exception) {
                         priceError = e.message ?: "خطا در دریافت قیمت مظنه"
                     } finally {
