@@ -1,3 +1,4 @@
+
 package com.goldanalyzer
 
 data class IchimokuPoint(
@@ -16,22 +17,47 @@ data class FibonacciLevels(
 
 object AdvancedIndicators {
 
+    private fun isValidCandle(candle: Candle): Boolean {
+        return candle.openTime > 0L &&
+            candle.closeTime > candle.openTime &&
+            candle.open.isFinite() &&
+            candle.high.isFinite() &&
+            candle.low.isFinite() &&
+            candle.close.isFinite() &&
+            candle.volume.isFinite() &&
+            candle.open > 0.0 &&
+            candle.high > 0.0 &&
+            candle.low > 0.0 &&
+            candle.close > 0.0 &&
+            candle.volume >= 0.0 &&
+            candle.high >= candle.low &&
+            candle.high >= maxOf(candle.open, candle.close) &&
+            candle.low <= minOf(candle.open, candle.close)
+    }
+
     private fun midpoint(
         candles: List<Candle>,
         endIndex: Int,
         period: Int
     ): Double? {
-        if (endIndex + 1 < period) return null
+        if (period <= 0 || endIndex + 1 < period) return null
 
         val window = candles.subList(
             endIndex - period + 1,
             endIndex + 1
         )
 
+        if (!window.all { isValidCandle(it) }) return null
+
         val highest = window.maxOf { it.high }
         val lowest = window.minOf { it.low }
+        val difference = highest - lowest
 
-        return (highest + lowest) / 2.0
+        if (!difference.isFinite() || difference < 0.0) return null
+
+        val value = lowest / 2.0 + highest / 2.0
+
+        return value.takeIf { it.isFinite() && it > 0.0 }
     }
 
     fun ichimoku(
@@ -48,23 +74,35 @@ object AdvancedIndicators {
         return candles.indices.map { index ->
 
             val tenkan = midpoint(
-                candles, index, tenkanPeriod
+                candles,
+                index,
+                tenkanPeriod
             )
 
             val kijun = midpoint(
-                candles, index, kijunPeriod
+                candles,
+                index,
+                kijunPeriod
             )
 
             val senkouB = midpoint(
-                candles, index, senkouBPeriod
+                candles,
+                index,
+                senkouBPeriod
             )
 
-            val senkouA =
-                if (tenkan != null && kijun != null)
-                    (tenkan + kijun) / 2.0
-                else null
+            val senkouA = if (tenkan != null && kijun != null) {
+                val value = tenkan / 2.0 + kijun / 2.0
+                value.takeIf { it.isFinite() && it > 0.0 }
+            } else {
+                null
+            }
 
-            val chikou = candles[index].close
+            val chikou = candles[index].close.takeIf {
+                isValidCandle(candles[index]) &&
+                    it.isFinite() &&
+                    it > 0.0
+            }
 
             IchimokuPoint(
                 tenkan = tenkan,
@@ -87,12 +125,18 @@ object AdvancedIndicators {
 
         val window = candles.takeLast(lookback)
 
+        if (window.size < 2 || !window.all { isValidCandle(it) }) {
+            return null
+        }
+
         val high = window.maxOf { it.high }
         val low = window.minOf { it.low }
 
         val difference = high - low
 
-        if (difference <= 0.0) return null
+        if (!difference.isFinite() || difference <= 0.0) {
+            return null
+        }
 
         val ratios = listOf(
             0.0,
@@ -106,6 +150,10 @@ object AdvancedIndicators {
 
         val levels = ratios.associateWith { ratio ->
             high - difference * ratio
+        }
+
+        if (levels.values.any { !it.isFinite() || it <= 0.0 }) {
+            return null
         }
 
         return FibonacciLevels(
@@ -125,7 +173,11 @@ object AdvancedIndicators {
 
         val range = result.high - result.low
 
-        return listOf(
+        if (!range.isFinite() || range <= 0.0) {
+            return null
+        }
+
+        val extensions = listOf(
             1.272,
             1.414,
             1.618,
@@ -134,5 +186,11 @@ object AdvancedIndicators {
         ).associateWith { ratio ->
             result.high + range * (ratio - 1.0)
         }
+
+        if (extensions.values.any { !it.isFinite() || it <= 0.0 }) {
+            return null
+        }
+
+        return extensions
     }
 }
