@@ -528,7 +528,7 @@ priceError = when {
         "هشدار: آخرین قیمت مظنه قدیمی است."
     else -> null
 }
-                        priceError = null
+
                     } catch (e: Exception) {
                         priceError = e.message ?: "خطا در دریافت قیمت مظنه"
                     } finally {
