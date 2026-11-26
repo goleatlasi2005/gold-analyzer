@@ -76,52 +76,59 @@ class MesghalRepository(
         }
     }
 
-    suspend fun getLivePrices(): MesghalPrices {
+    suspend fun getLivePrices(): MesghalPrices =
+        kotlinx.coroutines.supervisorScope {
 
-        val talasanjPrice = try {
-            val prices = talasanjRepository.getPrices()
+            val talasanjTask = kotlinx.coroutines.async {
+                try {
+                    val prices = talasanjRepository.getPrices()
 
-            val observedAt = parseUtcTimestamp(prices.updatedAt)
-            val age = calculateAgeSeconds(observedAt)
+                    val observedAt = parseUtcTimestamp(prices.updatedAt)
+                    val age = calculateAgeSeconds(observedAt)
 
-            val rialPrice = prices.mesghalToman * 10.0
+                    val rialPrice = prices.mesghalToman * 10.0
 
-            if (!rialPrice.isFinite() || rialPrice <= 0.0) {
-                error("قیمت مظنه طلاسنج معتبر نیست.")
+                    if (!rialPrice.isFinite() || rialPrice <= 0.0) {
+                        error("قیمت مظنه طلاسنج معتبر نیست.")
+                    }
+
+                    MesghalQuote(
+                        currentPriceRial = rialPrice,
+                        changeRial = 0.0,
+                        changePercent = prices.mesghalChangePercent,
+                        highRial = 0.0,
+                        lowRial = 0.0,
+                        observedAtMillis = observedAt,
+                        ageSeconds = age,
+                        isFresh = age <= TALASANJ_MAX_AGE_SECONDS
+                    )
+                } catch (_: Exception) {
+                    null
+                }
             }
 
-            MesghalQuote(
-                currentPriceRial = rialPrice,
-                changeRial = 0.0,
-                changePercent = prices.mesghalChangePercent,
-                highRial = 0.0,
-                lowRial = 0.0,
-                observedAtMillis = observedAt,
-                ageSeconds = age,
-                isFresh = age <= TALASANJ_MAX_AGE_SECONDS
+            val tgjuTask = kotlinx.coroutines.async {
+                try {
+                    getLivePrice()
+                } catch (_: Exception) {
+                    null
+                }
+            }
+
+            val nerkhAraTask = kotlinx.coroutines.async {
+                try {
+                    getNerkhAraPrice()
+                } catch (_: Exception) {
+                    null
+                }
+            }
+
+            MesghalPrices(
+                talasanj = talasanjTask.await(),
+                tgju = tgjuTask.await(),
+                nerkhAra = nerkhAraTask.await()
             )
-        } catch (_: Exception) {
-            null
         }
-
-        val tgjuPrice = try {
-            getLivePrice()
-        } catch (_: Exception) {
-            null
-        }
-
-        val nerkhAraPrice = try {
-            getNerkhAraPrice()
-        } catch (_: Exception) {
-            null
-        }
-
-        return MesghalPrices(
-            talasanj = talasanjPrice,
-            tgju = tgjuPrice,
-            nerkhAra = nerkhAraPrice
-        )
-    }
 
     suspend fun getLivePrice(): MesghalQuote =
         withContext(Dispatchers.IO) {
