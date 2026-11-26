@@ -1293,9 +1293,11 @@ if (selectedMarket != "طلای ۱۸ عیار") {
                                 TradingSignalContent(  
                                     signal = tradingSignal,  
                                     candleCount = activeTimeframeAnalysis.completedCandles.size,  
-                                    candleTime = activeTimeframeAnalysis.completedCandles.lastOrNull()?.closeTime,  
-                                    oneWayMarket = true  
-                                )  
+                                    candleTime = activeTimeframeAnalysis.completedCandles.lastOrNull()?.closeTime,
+oneWayMarket = true,
+livePrice = ayiarQuote?.currentPrice,
+quoteObservedAtMillis = ayiarQuoteObservedAtMillis,
+quoteFresh = ayiarQuoteFresh
                             }  
                         }  
                     }  
@@ -1351,7 +1353,10 @@ if (selectedMarket != "طلای ۱۸ عیار") {
                                     signal = xauTradingSignal,
                                     candleCount = activeXauTimeframeAnalysis.completedCandles.size,
                                     candleTime = activeXauTimeframeAnalysis.completedCandles.lastOrNull()?.closeTime,
-                                    priceInUsd = true
+priceInUsd = true,
+livePrice = spotQuote?.priceUsdPerTroyOunce,
+quoteObservedAtMillis = xauQuoteObservedAtMillis,
+quoteFresh = xauQuoteFresh
                                 )
                             }
                         }
