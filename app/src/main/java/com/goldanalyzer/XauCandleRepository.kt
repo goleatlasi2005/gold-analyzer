@@ -30,10 +30,10 @@ class XauCandleRepository(
         }
 
         val range = when (intervalMinutes) {
-    5, 15 -> "5d"
-    30, 60 -> "1mo"
-    240 -> "3mo"
-    else -> "1y"
+            5, 15 -> "5d"
+            30, 60 -> "1mo"
+            240 -> "3mo"
+            else -> "1y"
         }
 
         val request = Request.Builder()
@@ -48,7 +48,7 @@ class XauCandleRepository(
             .get()
             .build()
 
-                // در خطاهای موقت شبکه، دریافت را حداکثر دو بار تکرار می‌کنیم.
+        // در خطاهای موقت شبکه، دریافت را حداکثر دو بار تکرار می‌کنیم.
         var response: Response? = null
         var lastNetworkError: IOException? = null
 
@@ -66,7 +66,10 @@ class XauCandleRepository(
         }
 
         val receivedResponse = response
-            ?: throw (lastNetworkError ?: IOException("ارتباط با سرور انس برقرار نشد"))
+            ?: throw (
+                lastNetworkError
+                    ?: IOException("ارتباط با سرور انس برقرار نشد")
+                )
 
         receivedResponse.use { response ->
 
@@ -82,24 +85,37 @@ class XauCandleRepository(
             val points = root.optJSONArray("points")
                 ?: error("اطلاعات کندل انس در پاسخ وجود ندارد")
 
+            val durationMinutes = when (intervalMinutes) {
+                0 -> 1440
+                240 -> 60
+                else -> intervalMinutes
+            }
+
+            val durationMillis = durationMinutes * 60_000L
             val candles = mutableListOf<Candle>()
 
             for (i in 0 until points.length()) {
                 val item = points.optJSONObject(i) ?: continue
 
                 val timestamp = item.optLong("t", 0L)
-                val open = item.optDouble("o", 0.0)
-                val high = item.optDouble("h", 0.0)
-                val low = item.optDouble("l", 0.0)
-                val close = item.optDouble("c", 0.0)
+                val open = item.optDouble("o", Double.NaN)
+                val high = item.optDouble("h", Double.NaN)
+                val low = item.optDouble("l", Double.NaN)
+                val close = item.optDouble("c", Double.NaN)
                 val volume = item.optDouble("v", 0.0)
 
                 if (
                     timestamp <= 0L ||
+                    !open.isFinite() ||
+                    !high.isFinite() ||
+                    !low.isFinite() ||
+                    !close.isFinite() ||
+                    !volume.isFinite() ||
                     open <= 0.0 ||
                     high <= 0.0 ||
                     low <= 0.0 ||
                     close <= 0.0 ||
+                    volume < 0.0 ||
                     high < low ||
                     high < maxOf(open, close) ||
                     low > minOf(open, close)
@@ -108,29 +124,34 @@ class XauCandleRepository(
                 }
 
                 val openTime = if (timestamp < 10_000_000_000L) {
+                    if (timestamp > Long.MAX_VALUE / 1000L) {
+                        continue
+                    }
                     timestamp * 1000L
                 } else {
                     timestamp
                 }
 
-                val durationMinutes = when (intervalMinutes) {
-                    0 -> 1440
-                    240 -> 60
-                    else -> intervalMinutes
+                if (
+                    openTime <= 0L ||
+                    openTime > Long.MAX_VALUE - durationMillis
+                ) {
+                    continue
                 }
 
-                candles.add(
-                    Candle(
-                        openTime = openTime,
-                        open = open,
-                        high = high,
-                        low = low,
-                        close = close,
-                        volume = volume.coerceAtLeast(0.0),
-                        closeTime = openTime +
-                            durationMinutes * 60_000L - 1L
-                    )
+                val candle = Candle(
+                    openTime = openTime,
+                    open = open,
+                    high = high,
+                    low = low,
+                    close = close,
+                    volume = volume,
+                    closeTime = openTime + durationMillis - 1L
                 )
+
+                if (isValidCandle(candle)) {
+                    candles.add(candle)
+                }
             }
 
             val sorted = candles
@@ -172,7 +193,7 @@ class XauCandleRepository(
                             (first.openTime / 14_400_000L) *
                                 14_400_000L
 
-                        Candle(
+                        val aggregated = Candle(
                             openTime = bucketStart,
                             open = first.open,
                             high = ordered.maxOf { it.high },
@@ -182,6 +203,8 @@ class XauCandleRepository(
                             closeTime = bucketStart +
                                 14_400_000L - 1L
                         )
+
+                        aggregated.takeIf { isValidCandle(it) }
                     }
 
             } else {
@@ -221,5 +244,23 @@ class XauCandleRepository(
         return dailySeries.copy(
             candles = dailySeries.candles.takeLast(count)
         )
+    }
+
+    private fun isValidCandle(candle: Candle): Boolean {
+        return candle.openTime > 0L &&
+            candle.closeTime > candle.openTime &&
+            candle.open.isFinite() &&
+            candle.high.isFinite() &&
+            candle.low.isFinite() &&
+            candle.close.isFinite() &&
+            candle.volume.isFinite() &&
+            candle.open > 0.0 &&
+            candle.high > 0.0 &&
+            candle.low > 0.0 &&
+            candle.close > 0.0 &&
+            candle.volume >= 0.0 &&
+            candle.high >= candle.low &&
+            candle.high >= maxOf(candle.open, candle.close) &&
+            candle.low <= minOf(candle.open, candle.close)
     }
 }
