@@ -2220,20 +2220,212 @@ Card(
         signal.reasons.forEach { reason ->  
             Text(  
                 "• $reason",  
-                color = TextGray,  
-                fontSize = 13.sp  
-            )  
-        }  
 
-        Text(  
-            "این اطمینان، امتیاز الگوریتم است و احتمال آماری موفقیت معامله نیست.",  
-            color = TextGray,  
-            fontSize = 11.sp  
-        )  
-    }  
+@Composable
+private fun TradingSignalContent(
+    signal: TradingSignal,
+    candleCount: Int,
+    candleTime: Long?,
+    oneWayMarket: Boolean = false,
+    priceInUsd: Boolean = false,
+    showRiskLevels: Boolean = true,
+    livePrice: Double? = null,
+    quoteObservedAtMillis: Long? = null,
+    quoteFresh: Boolean = false
+) {
+    val formatPrice: (Double) -> String = { value ->
+        if (priceInUsd) {
+            String.format(Locale.US, "%,.2f USD", value)
+        } else {
+            formatRial(value)
+        }
+    }
+
+    val inactiveReason = SignalFreshness.inactiveReason(
+        signal = signal,
+        livePrice = livePrice,
+        observedAtMillis = quoteObservedAtMillis,
+        quoteFresh = quoteFresh
+    )
+
+    val signalIsInactive = inactiveReason != null
+
+    val signalColor = if (signalIsInactive) {
+        Red
+    } else {
+        when (signal.type) {
+            SignalType.BUY -> Green
+            SignalType.SELL -> Red
+            SignalType.HOLD -> DarkGold
+        }
+    }
+
+    val signalText = if (signalIsInactive) {
+        "غیرفعال / منقضی"
+    } else {
+        when (signal.type) {
+            SignalType.BUY -> "خرید"
+            SignalType.SELL -> if (oneWayMarket) {
+                "فروش واحدهای موجود"
+            } else {
+                "فروش"
+            }
+            SignalType.HOLD -> "صبر"
+        }
+    }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = Color(0xFFFFFEFA)
+        ),
+        border = BorderStroke(1.dp, signalColor),
+        shape = RoundedCornerShape(14.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(9.dp)
+        ) {
+            Text(
+                "وضعیت سیگنال: $signalText",
+                color = signalColor,
+                fontSize = 22.sp,
+                fontWeight = FontWeight.Bold
+            )
+
+            inactiveReason?.let {
+                Text(
+                    it,
+                    color = Red,
+                    fontSize = 12.sp
+                )
+            }
+
+            Text(
+                "قدرت امتیاز: ${signal.score} از ۱۰۰",
+                color = TextDark,
+                fontWeight = FontWeight.Bold
+            )
+
+            Text(
+                "شاخص اطمینان محاسباتی: ${signal.confidencePercent}٪",
+                color = TextGray
+            )
+
+            Text(
+                "روند: ${signal.trend}",
+                color = TextDark
+            )
+
+            Text(
+                "تعداد کندل‌های بررسی‌شده: $candleCount",
+                color = TextGray
+            )
+
+            candleTime?.let {
+                Text(
+                    "زمان آخرین کندل تحلیل‌شده: ${formatTehranTime(it)}",
+                    color = TextGray,
+                    fontSize = 12.sp
+                )
+            }
+
+            HorizontalDivider(color = Color(0xFFEAEAEA))
+
+            if (oneWayMarket && signal.type == SignalType.SELL) {
+                Text(
+                    "قیمت مرجع فروش: ${formatPrice(signal.entryPrice)}",
+                    color = TextDark,
+                    fontWeight = FontWeight.Bold
+                )
+
+                Text(
+                    "این سیگنال فقط برای فروش واحدهایی است که از قبل در اختیار داری؛ فروش استقراضی در صندوق عیار امکان‌پذیر نیست.",
+                    color = Red,
+                    fontSize = 12.sp
+                )
+            } else {
+                Text(
+                    "قیمت مرجع ورود: ${formatPrice(signal.entryPrice)}",
+                    color = TextDark,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            if (
+                showRiskLevels &&
+                signal.type != SignalType.HOLD &&
+                !signalIsInactive
+            ) {
+                Text(
+                    "حد ضرر: ${formatPrice(signal.stopLoss)}",
+                    color = Red
+                )
+
+                Text(
+                    "حد سود اول: ${formatPrice(signal.takeProfit1)}",
+                    color = Green
+                )
+
+                Text(
+                    "حد سود دوم: ${formatPrice(signal.takeProfit2)}",
+                    color = Green
+                )
+
+                Text(
+                    "حد سود سوم: ${formatPrice(signal.takeProfit3)}",
+                    color = Green
+                )
+
+                Text(
+                    "نسبت ریسک به بازده هدف: ۱ به ${
+                        String.format(
+                            Locale.US,
+                            "%.1f",
+                            signal.riskRewardRatio
+                        )
+                    }",
+                    color = DarkGold,
+                    fontWeight = FontWeight.Bold
+                )
+            } else if (signalIsInactive) {
+                Text(
+                    "سطوح حد سود و ضرر این سیگنال نمایش داده نمی‌شوند؛ قیمت ورود قبلی دیگر معتبر نیست.",
+                    color = Red,
+                    fontSize = 12.sp
+                )
+            } else if (signal.type == SignalType.HOLD) {
+                Text(
+                    "شرایط ورود کامل نیست؛ فعلاً معامله‌ای پیشنهاد نمی‌شود.",
+                    color = DarkGold
+                )
+            }
+
+            HorizontalDivider(color = Color(0xFFEAEAEA))
+
+            Text(
+                "دلایل صدور سیگنال:",
+                color = DarkGold,
+                fontWeight = FontWeight.Bold
+            )
+
+            signal.reasons.forEach { reason ->
+                Text(
+                    "• $reason",
+                    color = TextGray,
+                    fontSize = 13.sp
+                )
+            }
+
+            Text(
+                "این اطمینان، امتیاز الگوریتم است و احتمال آماری موفقیت معامله نیست.",
+                color = TextGray,
+                fontSize = 11.sp
+            )
+        }
+    }
 }
 
-}
 
 private fun formatRial(value: Double): String {
 return String.format(Locale.US, "%,.0f ریال", value)
