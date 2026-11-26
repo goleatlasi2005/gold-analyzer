@@ -1,17 +1,26 @@
 
 package com.goldanalyzer
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
-import org.json.JSONObject
-import kotlinx.coroutines.delay
-import java.io.IOException
 import okhttp3.Response
+import org.json.JSONObject
+import java.io.IOException
+import java.util.concurrent.TimeUnit
 
 class XauCandleRepository(
-    private val httpClient: OkHttpClient = OkHttpClient()
+    private val httpClient: OkHttpClient = OkHttpClient.Builder()
+        .connectTimeout(10, TimeUnit.SECONDS)
+        .readTimeout(20, TimeUnit.SECONDS)
+        .writeTimeout(10, TimeUnit.SECONDS)
+        .callTimeout(25, TimeUnit.SECONDS)
+        .build()
 ) : MarketCandleRepository {
 
     override suspend fun getCandles(
@@ -48,22 +57,37 @@ class XauCandleRepository(
             .get()
             .build()
 
-        // در خطاهای موقت شبکه، دریافت را حداکثر دو بار تکرار می‌کنیم.
         var response: Response? = null
         var lastNetworkError: IOException? = null
 
         for (attempt in 0..2) {
+
+            currentCoroutineContext().ensureActive()
+
             try {
                 response = httpClient.newCall(request).execute()
+
+                currentCoroutineContext().ensureActive()
+
                 lastNetworkError = null
                 break
+
+            } catch (e: CancellationException) {
+                throw e
+
             } catch (e: IOException) {
+
+                currentCoroutineContext().ensureActive()
+
                 lastNetworkError = e
+
                 if (attempt < 2) {
                     delay(700L * (attempt + 1))
                 }
             }
         }
+
+        currentCoroutineContext().ensureActive()
 
         val receivedResponse = response
             ?: throw (
@@ -73,12 +97,16 @@ class XauCandleRepository(
 
         receivedResponse.use { response ->
 
+            currentCoroutineContext().ensureActive()
+
             if (!response.isSuccessful) {
                 error("خطای دریافت کندل انس: ${response.code}")
             }
 
             val body = response.body?.string()
                 ?: error("پاسخی برای نمودار انس دریافت نشد")
+
+            currentCoroutineContext().ensureActive()
 
             val root = JSONObject(body)
 
@@ -95,6 +123,11 @@ class XauCandleRepository(
             val candles = mutableListOf<Candle>()
 
             for (i in 0 until points.length()) {
+
+                if (i % 100 == 0) {
+                    currentCoroutineContext().ensureActive()
+                }
+
                 val item = points.optJSONObject(i) ?: continue
 
                 val timestamp = item.optLong("t", 0L)
@@ -154,6 +187,8 @@ class XauCandleRepository(
                 }
             }
 
+            currentCoroutineContext().ensureActive()
+
             val sorted = candles
                 .distinctBy { it.openTime }
                 .sortedBy { it.openTime }
@@ -171,8 +206,6 @@ class XauCandleRepository(
 
                         val ordered = group.sortedBy { it.openTime }
 
-                        // فقط چهار کندل ساعتی کامل و پیوسته
-                        // برای ساخت کندل چهارساعته پذیرفته می‌شود.
                         if (ordered.size != 4) {
                             return@mapNotNull null
                         }
@@ -210,6 +243,8 @@ class XauCandleRepository(
             } else {
                 sorted
             }
+
+            currentCoroutineContext().ensureActive()
 
             if (result.isEmpty()) {
                 error("کندل کامل برای تایم‌فریم انتخاب‌شده دریافت نشد")
