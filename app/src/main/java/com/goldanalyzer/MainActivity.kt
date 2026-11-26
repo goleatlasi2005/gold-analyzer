@@ -1382,6 +1382,9 @@ if (selectedMarket != "طلای ۱۸ عیار") {
                 error = shortTermCombinedError,
                 primaryTimeframeLabel = "۳۰ دقیقه",
                 oneWayMarket = true
+                livePrice = ayiarQuote?.currentPrice,
+quoteObservedAtMillis = ayiarQuoteObservedAtMillis,
+quoteFresh = ayiarQuoteFresh
             )
         }
 
