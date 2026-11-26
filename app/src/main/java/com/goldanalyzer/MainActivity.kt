@@ -752,7 +752,22 @@ val xauSupportResistanceLevels = remember(
     }
 }
 val lastAnalyzedCandle = completedCandles.lastOrNull()  
+// اعتبارسنجی قیمت زنده برای فعال بودن سیگنال‌ها
+val ayiarQuoteObservedAtMillis = ayiarQuote?.let {
+    SignalFreshness.ayiarObservedAtMillis(
+        dateValue = it.date,
+        timeValue = it.time
+    )
+}
 
+val ayiarQuoteFresh =
+    ayiarQuote != null && isAyiarMarketOpen()
+
+val xauQuoteObservedAtMillis =
+    spotQuote?.observedAtMillis
+
+val xauQuoteFresh =
+    spotQuote?.isFresh == true
 MaterialTheme {  
     Surface(  
         modifier = Modifier.fillMaxSize(),  
