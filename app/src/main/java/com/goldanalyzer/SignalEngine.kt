@@ -38,24 +38,27 @@ object SignalEngine {
             return null
         }
 
-        val validCandles = candles
-            .filter { it.closeTime <= nowMillis }
-            .filter {
-                it.open.isFinite() &&
-                it.high.isFinite() &&
-                it.low.isFinite() &&
-                it.close.isFinite() &&
-                it.volume.isFinite() &&
-                it.open > 0.0 &&
-                it.high > 0.0 &&
-                it.low > 0.0 &&
-                it.close > 0.0 &&
-                it.high >= it.low &&
-                it.volume >= 0.0
+                val validCandles = candles
+            .filter { candle ->
+                candle.openTime > 0L &&
+                candle.closeTime > candle.openTime &&
+                candle.closeTime <= nowMillis &&
+                candle.open.isFinite() &&
+                candle.high.isFinite() &&
+                candle.low.isFinite() &&
+                candle.close.isFinite() &&
+                candle.volume.isFinite() &&
+                candle.open > 0.0 &&
+                candle.high > 0.0 &&
+                candle.low > 0.0 &&
+                candle.close > 0.0 &&
+                candle.volume >= 0.0 &&
+                candle.high >= candle.low &&
+                candle.high >= maxOf(candle.open, candle.close) &&
+                candle.low <= minOf(candle.open, candle.close)
             }
             .distinctBy { it.openTime }
             .sortedBy { it.openTime }
-
         val requiredCount = maxOf(minimumCandles, longEmaPeriod)
 
         if (validCandles.size < requiredCount) return null
