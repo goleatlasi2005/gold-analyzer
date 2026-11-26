@@ -1524,7 +1524,7 @@ val xauBollinger = remember(completedXauCandles) {
                     )
 
                     Text(
-                        "میانگین بلندمدت: EMA$longEmaPeriod",
+                        "میانگین بلندمدت: EMA${if (selectedTimeframe == "۳۰ دقیقه") 160 else longEmaPeriod}",
                         color = TextGray
                     )
 
