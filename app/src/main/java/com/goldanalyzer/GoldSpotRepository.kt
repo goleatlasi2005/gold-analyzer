@@ -27,6 +27,12 @@ class GoldSpotRepository(
     private var previousCloseCache: Double? = null
     private var historyFetchedAtMillis = 0L
 
+    companion object {
+        private const val MAX_PRICE_AGE_SECONDS = 180L
+        private const val MAX_FUTURE_TOLERANCE_MILLIS = 60_000L
+        private const val HISTORY_CACHE_MILLIS = 6 * 60 * 60 * 1000L
+    }
+
     suspend fun getXauUsdSpot(): GoldSpotQuote =
         withContext(Dispatchers.IO) {
 
@@ -48,18 +54,25 @@ class GoldSpotRepository(
                 val root = JSONObject(body)
                 val xau = root.optJSONObject("xau")
 
-                val price = root.optDouble(
+                val rootPrice = root.optDouble(
                     "spot_usd_oz",
                     Double.NaN
-                ).takeIf { it.isFinite() && it > 0.0 }
-                    ?: xau?.optDouble(
-                        "spot_usd_oz",
-                        Double.NaN
-                    )
-                    ?: Double.NaN
+                )
 
-                if (!price.isFinite() || price <= 0.0) {
-                    error("قیمت دریافتی معتبر نیست")
+                val nestedPrice = xau?.optDouble(
+                    "spot_usd_oz",
+                    Double.NaN
+                ) ?: Double.NaN
+
+                val price = when {
+                    rootPrice.isFinite() && rootPrice > 0.0 ->
+                        rootPrice
+
+                    nestedPrice.isFinite() && nestedPrice > 0.0 ->
+                        nestedPrice
+
+                    else ->
+                        error("قیمت دریافتی معتبر نیست")
                 }
 
                 val state = root.optJSONObject("data_state")
@@ -90,27 +103,42 @@ class GoldSpotRepository(
                 val updatedAt = parseTime(responseTime)
                 val now = System.currentTimeMillis()
 
+                if (observedAt <= 0L || updatedAt <= 0L) {
+                    error("زمان دریافتی معتبر نیست")
+                }
+
+                if (
+                    observedAt > now + MAX_FUTURE_TOLERANCE_MILLIS ||
+                    updatedAt > now + MAX_FUTURE_TOLERANCE_MILLIS
+                ) {
+                    error("زمان قیمت دریافتی در آینده قرار دارد")
+                }
+
                 val calculatedAge = (now - observedAt) / 1000L
-
-                val apiAge = state.optLong(
-                    "age_seconds",
-                    calculatedAge
-                )
-
                 val responseAge = (now - updatedAt) / 1000L
 
+                val apiAge = if (state.has("age_seconds")) {
+                    state.optLong("age_seconds", -1L)
+                } else {
+                    calculatedAge
+                }
+
+                if (apiAge < 0L) {
+                    error("سن قیمت دریافتی معتبر نیست")
+                }
+
                 val age = maxOf(
-                    0L,
                     apiAge,
                     calculatedAge,
-                    responseAge
+                    responseAge,
+                    0L
                 )
 
                 val stale = root.optBoolean("stale", true)
 
                 val fresh =
                     !stale &&
-                    age in 0..180 &&
+                    age <= MAX_PRICE_AGE_SECONDS &&
                     status == "fresh"
 
                 GoldSpotQuote(
@@ -118,7 +146,7 @@ class GoldSpotRepository(
                     source = root.optString(
                         "price_source",
                         "XAUS"
-                    ),
+                    ).ifBlank { "XAUS" },
                     observedAtMillis = observedAt,
                     ageSeconds = age,
                     isFresh = fresh,
@@ -136,7 +164,8 @@ class GoldSpotRepository(
             synchronized(historyLock) {
                 if (
                     previousCloseCache != null &&
-                    now - historyFetchedAtMillis < 6 * 60 * 60 * 1000L
+                    now >= historyFetchedAtMillis &&
+                    now - historyFetchedAtMillis < HISTORY_CACHE_MILLIS
                 ) {
                     return@withContext previousCloseCache
                 }
@@ -173,12 +202,16 @@ class GoldSpotRepository(
                             continue
                         }
 
-                        val close = item.optDouble("c", 0.0)
+                        val close = item.optDouble("c", Double.NaN)
 
-                        if (date.isBefore(todayUtc) && close > 0.0) {
+                        if (
+                            date.isBefore(todayUtc) &&
+                            close.isFinite() &&
+                            close > 0.0
+                        ) {
                             if (
                                 previous == null ||
-                                date.isAfter(previous!!.first)
+                                date.isAfter(previous.first)
                             ) {
                                 previous = date to close
                             }
