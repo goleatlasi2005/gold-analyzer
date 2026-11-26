@@ -401,9 +401,22 @@ suspend fun refreshSelectedMarket() {
                 priceLoading = true
                 try {
                     mesghalPrices = mesghalRepository.getLivePrices()
-                    mesghalQuote = mesghalPrices?.talasanj
-                        ?: mesghalPrices?.tgju
-                        ?: mesghalPrices?.nerkhAra
+                    val availableQuotes = listOf(
+    mesghalPrices?.talasanj,
+    mesghalPrices?.tgju,
+    mesghalPrices?.nerkhAra
+).filterNotNull()
+
+mesghalQuote = availableQuotes.firstOrNull { it.isFresh }
+    ?: availableQuotes.firstOrNull()
+
+priceError = when {
+    mesghalQuote == null ->
+        "قیمت مظنه از هیچ‌یک از منابع دریافت نشد."
+    !mesghalQuote!!.isFresh ->
+        "هشدار: آخرین قیمت مظنه قدیمی است."
+    else -> null
+}
                 } catch (e: Exception) {
                     priceError =
                         e.message ?: "خطا در دریافت قیمت مظنه"
@@ -499,9 +512,22 @@ changePercent = talasanj.ounceChangePercent
                     priceLoading = mesghalQuote == null
                     try {
                         mesghalPrices = mesghalRepository.getLivePrices()
-mesghalQuote = mesghalPrices?.talasanj
-    ?: mesghalPrices?.tgju
-    ?: mesghalPrices?.nerkhAra
+val availableQuotes = listOf(
+    mesghalPrices?.talasanj,
+    mesghalPrices?.tgju,
+    mesghalPrices?.nerkhAra
+).filterNotNull()
+
+mesghalQuote = availableQuotes.firstOrNull { it.isFresh }
+    ?: availableQuotes.firstOrNull()
+
+priceError = when {
+    mesghalQuote == null ->
+        "قیمت مظنه از هیچ‌یک از منابع دریافت نشد."
+    !mesghalQuote!!.isFresh ->
+        "هشدار: آخرین قیمت مظنه قدیمی است."
+    else -> null
+}
                         priceError = null
                     } catch (e: Exception) {
                         priceError = e.message ?: "خطا در دریافت قیمت مظنه"
