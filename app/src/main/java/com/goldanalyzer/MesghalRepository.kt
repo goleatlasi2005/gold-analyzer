@@ -1,6 +1,7 @@
 
 package com.goldanalyzer
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.withContext
@@ -103,6 +104,8 @@ class MesghalRepository(
                         ageSeconds = age,
                         isFresh = age <= TALASANJ_MAX_AGE_SECONDS
                     )
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (_: Exception) {
                     null
                 }
@@ -111,6 +114,8 @@ class MesghalRepository(
             val tgjuTask = async {
                 try {
                     getLivePrice()
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (_: Exception) {
                     null
                 }
@@ -119,6 +124,8 @@ class MesghalRepository(
             val nerkhAraTask = async {
                 try {
                     getNerkhAraPrice()
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (_: Exception) {
                     null
                 }
