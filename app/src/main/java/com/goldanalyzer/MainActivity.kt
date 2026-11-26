@@ -1834,137 +1834,170 @@ if (selectedMarket != "طلای ۱۸ عیار") {
 }
 }
 @Composable
+
+@Composable
 private fun CombinedPeriodContent(
-period: CombinedPeriodResult?,
-loading: Boolean,
-error: String?,
-primaryTimeframeLabel: String,
-oneWayMarket: Boolean = false,
-priceInUsd: Boolean = false
+    period: CombinedPeriodResult?,
+    loading: Boolean,
+    error: String?,
+    primaryTimeframeLabel: String,
+    oneWayMarket: Boolean = false,
+    priceInUsd: Boolean = false,
+    livePrice: Double? = null,
+    quoteObservedAtMillis: Long? = null,
+    quoteFresh: Boolean = false
 ) {
-if (period == null) {
-if (loading) {
-CircularProgressIndicator(color = DarkGold)
-Text(
-"در حال دریافت داده‌های تایم‌فریم‌ها و محاسبه سیگنال ترکیبی...",
-color = TextGray
-)
-} else {
-Text(
-error ?: "هنوز داده‌ای برای سیگنال ترکیبی دریافت نشده است.",
-color = Red
-)
+    if (period == null) {
+        if (loading) {
+            CircularProgressIndicator(color = DarkGold)
+            Text(
+                "در حال دریافت داده‌های تایم‌فریم‌ها و محاسبه سیگنال ترکیبی...",
+                color = TextGray
+            )
+        } else {
+            Text(
+                error ?: "هنوز داده‌ای برای سیگنال ترکیبی دریافت نشده است.",
+                color = Red
+            )
+        }
+        return
+    }
+
+    if (loading) {
+        Text(
+            "در حال به‌روزرسانی سیگنال‌ها...",
+            color = DarkGold
+        )
+    }
+
+    Text(
+        "وضعیت تایم‌فریم‌های تشکیل‌دهنده:",
+        color = DarkGold,
+        fontWeight = FontWeight.Bold
+    )
+
+    period.timeframes.forEach { timeframe ->
+        Column(
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Text(
+                "${timeframe.timeframeLabel} | وزن ${timeframe.weightPercent}٪",
+                color = TextDark,
+                fontWeight = FontWeight.Bold
+            )
+
+            Text(
+                "تعداد کندل کامل: ${timeframe.candleCount}",
+                color = TextGray,
+                fontSize = 13.sp
+            )
+
+            timeframe.lastCandleTime?.let {
+                Text(
+                    "آخرین کندل: ${formatTehranTime(it)}",
+                    color = TextGray,
+                    fontSize = 12.sp
+                )
+            }
+
+            val timeframeSignal = timeframe.signal
+
+            if (timeframeSignal == null) {
+                Text(
+                    timeframe.errorMessage
+                        ?: "سیگنال معتبر برای این تایم‌فریم محاسبه نشد.",
+                    color = Red,
+                    fontSize = 12.sp
+                )
+            } else {
+                val inactiveReason = SignalFreshness.inactiveReason(
+                    signal = timeframeSignal,
+                    livePrice = livePrice,
+                    observedAtMillis = quoteObservedAtMillis,
+                    quoteFresh = quoteFresh
+                )
+
+                if (inactiveReason != null) {
+                    Text(
+                        "سیگنال مستقل: غیرفعال / منقضی",
+                        color = Red,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+
+                    Text(
+                        inactiveReason,
+                        color = Red,
+                        fontSize = 12.sp
+                    )
+                } else {
+                    val direction = when (timeframeSignal.type) {
+                        SignalType.BUY -> "خرید"
+                        SignalType.SELL -> "فروش"
+                        SignalType.HOLD -> "صبر"
+                    }
+
+                    Text(
+                        "سیگنال مستقل: $direction | امتیاز: ${timeframeSignal.score}",
+                        color = when (timeframeSignal.type) {
+                            SignalType.BUY -> Green
+                            SignalType.SELL -> Red
+                            SignalType.HOLD -> DarkGold
+                        },
+                        fontSize = 13.sp
+                    )
+                }
+            }
+        }
+
+        HorizontalDivider(color = Color(0xFFEAEAEA))
+    }
+
+    if (period.combinedSignal == null) {
+        Text(
+            "سیگنال ترکیبی هنوز صادر نشده است.",
+            color = Red,
+            fontWeight = FontWeight.Bold
+        )
+
+        Text(
+            "برای صدور سیگنال، هر سه تایم‌فریم باید داده کافی و سیگنال معتبر داشته باشند.",
+            color = TextGray,
+            fontSize = 13.sp
+        )
+    } else {
+        val primary = period.timeframes.firstOrNull {
+            it.timeframeLabel == primaryTimeframeLabel
+        }
+
+        Text(
+            "نتیجه نهایی $primaryTimeframeLabel مبنا:",
+            color = DarkGold,
+            fontWeight = FontWeight.Bold
+        )
+
+        TradingSignalContent(
+            signal = period.combinedSignal,
+            candleCount = primary?.candleCount ?: 0,
+            candleTime = primary?.lastCandleTime,
+            oneWayMarket = oneWayMarket,
+            priceInUsd = priceInUsd,
+            showRiskLevels = false,
+            livePrice = livePrice,
+            quoteObservedAtMillis = quoteObservedAtMillis,
+            quoteFresh = quoteFresh
+        )
+    }
+
+    if (error != null) {
+        Text(
+            "پیام به‌روزرسانی: $error",
+            color = Red,
+            fontSize = 12.sp
+        )
+    }
 }
-return
-}
 
-if (loading) {  
-    Text(  
-        "در حال به‌روزرسانی سیگنال‌ها...",  
-        color = DarkGold  
-    )  
-}  
-
-Text(  
-    "وضعیت تایم‌فریم‌های تشکیل‌دهنده:",  
-    color = DarkGold,  
-    fontWeight = FontWeight.Bold  
-)  
-
-period.timeframes.forEach { timeframe ->  
-    Column(  
-        verticalArrangement = Arrangement.spacedBy(4.dp)  
-    ) {  
-        Text(  
-            "${timeframe.timeframeLabel} | وزن ${timeframe.weightPercent}٪",  
-            color = TextDark,  
-            fontWeight = FontWeight.Bold  
-        )  
-
-        Text(  
-            "تعداد کندل کامل: ${timeframe.candleCount}",  
-            color = TextGray,  
-            fontSize = 13.sp  
-        )  
-
-        timeframe.lastCandleTime?.let {  
-            Text(  
-                "آخرین کندل: ${formatTehranTime(it)}",  
-                color = TextGray,  
-                fontSize = 12.sp  
-            )  
-        }  
-
-        if (timeframe.signal == null) {  
-            Text(  
-                timeframe.errorMessage  
-                    ?: "سیگنال معتبر برای این تایم‌فریم محاسبه نشد.",  
-                color = Red,  
-                fontSize = 12.sp  
-            )  
-        } else {  
-            val direction = when (timeframe.signal.type) {  
-                SignalType.BUY -> "خرید"  
-                SignalType.SELL -> "فروش"  
-                SignalType.HOLD -> "صبر"  
-            }  
-
-            Text(  
-                "سیگنال مستقل: $direction | امتیاز: ${timeframe.signal.score}",  
-                color = when (timeframe.signal.type) {  
-                    SignalType.BUY -> Green  
-                    SignalType.SELL -> Red  
-                    SignalType.HOLD -> DarkGold  
-                },  
-                fontSize = 13.sp  
-            )  
-        }  
-    }  
-
-    HorizontalDivider(color = Color(0xFFEAEAEA))  
-}  
-
-if (period.combinedSignal == null) {  
-    Text(  
-        "سیگنال ترکیبی هنوز صادر نشده است.",  
-        color = Red,  
-        fontWeight = FontWeight.Bold  
-    )  
-    Text(  
-        "برای صدور سیگنال، هر سه تایم‌فریم باید داده کافی و سیگنال معتبر داشته باشند.",  
-        color = TextGray,  
-        fontSize = 13.sp  
-    )  
-} else {  
-    val primary = period.timeframes.firstOrNull {  
-        it.timeframeLabel == primaryTimeframeLabel  
-    }  
-
-    Text(  
-        "نتیجه نهایی $primaryTimeframeLabel مبنا:",  
-        color = DarkGold,  
-        fontWeight = FontWeight.Bold  
-    )  
-
-    TradingSignalContent(  
-        signal = period.combinedSignal,  
-        candleCount = primary?.candleCount ?: 0,  
-        candleTime = primary?.lastCandleTime,  
-        oneWayMarket = oneWayMarket,
-        priceInUsd = priceInUsd,
-        showRiskLevels = false
-    )  
-}  
-
-if (error != null) {  
-    Text(  
-        "پیام به‌روزرسانی: $error",  
-        color = Red,  
-        fontSize = 12.sp  
-    )  
-}
-
-}
 @Composable
 private fun SupportResistanceRow(
     level: SupportResistanceLevel,
