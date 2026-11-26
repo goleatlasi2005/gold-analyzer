@@ -1,3 +1,4 @@
+
 package com.goldanalyzer
 
 import kotlin.math.abs
@@ -305,6 +306,7 @@ object TechnicalIndicators {
         }
     }
 
+    // ATR با روش استاندارد Wilder
     fun atr(
         candles: List<Candle>,
         period: Int = 14
@@ -314,6 +316,8 @@ object TechnicalIndicators {
         if (candles.isEmpty()) return emptyList()
 
         val result = MutableList<Double?>(candles.size) { null }
+
+        if (candles.size < period) return result
 
         if (!candles.all { validCandle(it) }) {
             return result
@@ -335,7 +339,31 @@ object TechnicalIndicators {
 
         if (!validValues(trueRanges)) return result
 
-        return ema(trueRanges, period)
+        // مقدار اولیه: میانگین ساده اولین دوره
+        var previousAtr = trueRanges
+            .take(period)
+            .average()
+
+        if (!previousAtr.isFinite() || previousAtr < 0.0) {
+            return result
+        }
+
+        result[period - 1] = previousAtr
+
+        // هموارسازی Wilder برای کندل‌های بعدی
+        for (i in period until candles.size) {
+            previousAtr = (
+                previousAtr * (period - 1) + trueRanges[i]
+            ) / period
+
+            if (!previousAtr.isFinite() || previousAtr < 0.0) {
+                return MutableList(candles.size) { null }
+            }
+
+            result[i] = previousAtr
+        }
+
+        return result
     }
 }
 
