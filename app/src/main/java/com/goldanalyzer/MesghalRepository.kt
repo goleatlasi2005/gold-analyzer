@@ -2,6 +2,7 @@
 package com.goldanalyzer
 
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -79,7 +80,7 @@ class MesghalRepository(
     suspend fun getLivePrices(): MesghalPrices =
         kotlinx.coroutines.supervisorScope {
 
-            val talasanjTask = kotlinx.coroutines.async {
+            val talasanjTask = async {
                 try {
                     val prices = talasanjRepository.getPrices()
 
@@ -107,7 +108,7 @@ class MesghalRepository(
                 }
             }
 
-            val tgjuTask = kotlinx.coroutines.async {
+            val tgjuTask = async {
                 try {
                     getLivePrice()
                 } catch (_: Exception) {
@@ -115,7 +116,7 @@ class MesghalRepository(
                 }
             }
 
-            val nerkhAraTask = kotlinx.coroutines.async {
+            val nerkhAraTask = async {
                 try {
                     getNerkhAraPrice()
                 } catch (_: Exception) {
