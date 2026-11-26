@@ -2179,47 +2179,6 @@ Card(
         if (showRiskLevels && signal.type != SignalType.HOLD) {
             Text(  
                 "حد ضرر: ${formatPrice(signal.stopLoss)}",  
-                color = Red  
-            )  
-
-            Text(  
-                "حد سود اول: ${formatPrice(signal.takeProfit1)}",  
-                color = Green  
-            )  
-
-            Text(  
-                "حد سود دوم: ${formatPrice(signal.takeProfit2)}",  
-                color = Green  
-            )  
-
-            Text(  
-                "حد سود سوم: ${formatPrice(signal.takeProfit3)}",  
-                color = Green  
-            )  
-
-            Text(  
-                "نسبت ریسک به بازده هدف: ۱ به ${String.format(Locale.US, "%.1f", signal.riskRewardRatio)}",  
-                color = DarkGold,  
-                fontWeight = FontWeight.Bold  
-            )  
-        } else if (signal.type == SignalType.HOLD) {  
-            Text(  
-                "شرایط ورود کامل نیست؛ فعلاً معامله‌ای پیشنهاد نمی‌شود.",  
-                color = DarkGold  
-            )  
-        }  
-
-        HorizontalDivider(color = Color(0xFFEAEAEA))  
-
-        Text(  
-            "دلایل صدور سیگنال:",  
-            color = DarkGold,  
-            fontWeight = FontWeight.Bold  
-        )  
-
-        signal.reasons.forEach { reason ->  
-            Text(  
-                "• $reason",  
 
 @Composable
 private fun TradingSignalContent(
