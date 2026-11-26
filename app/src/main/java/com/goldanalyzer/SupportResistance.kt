@@ -1,4 +1,3 @@
-
 package com.goldanalyzer
 
 import kotlin.math.abs
@@ -23,23 +22,61 @@ object SupportResistanceEngine {
         candles: List<Candle>
     ): List<SupportResistanceLevel> {
 
-        if (candles.size < 60) return emptyList()
+        val validCandles = candles
+            .asSequence()
+            .filter { candle ->
+                candle.openTime > 0L &&
+                    candle.closeTime > candle.openTime &&
+                    candle.open.isFinite() &&
+                    candle.high.isFinite() &&
+                    candle.low.isFinite() &&
+                    candle.close.isFinite() &&
+                    candle.volume.isFinite() &&
+                    candle.open > 0.0 &&
+                    candle.high > 0.0 &&
+                    candle.low > 0.0 &&
+                    candle.close > 0.0 &&
+                    candle.volume >= 0.0 &&
+                    candle.high >= candle.low &&
+                    candle.high >= maxOf(candle.open, candle.close) &&
+                    candle.low <= minOf(candle.open, candle.close)
+            }
+            .distinctBy { it.openTime }
+            .sortedBy { it.openTime }
+            .toList()
 
-        val currentPrice = candles.last().close
-        if (currentPrice <= 0.0) return emptyList()
+        if (validCandles.size < 60) return emptyList()
 
-        val recent = candles.takeLast(200)
+        val currentPrice = validCandles.last().close
+
+        if (!currentPrice.isFinite() || currentPrice <= 0.0) {
+            return emptyList()
+        }
+
+        val recent = validCandles.takeLast(200)
+
         val atr = TechnicalIndicators.atr(recent)
-            .lastOrNull() ?: return emptyList()
+            .lastOrNull()
+            ?: return emptyList()
+
+        if (!atr.isFinite() || atr <= 0.0) {
+            return emptyList()
+        }
 
         val tolerance = maxOf(
             atr * 0.35,
             currentPrice * 0.002
         )
 
-        val rawPivots = mutableListOf<Pair<Double, LevelSide>>()
+        if (!tolerance.isFinite() || tolerance <= 0.0) {
+            return emptyList()
+        }
+
+        val rawPivots =
+            mutableListOf<Pair<Double, LevelSide>>()
 
         for (i in 2 until recent.size - 2) {
+
             val candle = recent[i]
 
             val isHigh = (i - 2..i + 2)
@@ -51,28 +88,37 @@ object SupportResistanceEngine {
                 .all { recent[it].low >= candle.low }
 
             if (isHigh) {
-                rawPivots.add(candle.high to LevelSide.RESISTANCE)
+                rawPivots.add(
+                    candle.high to LevelSide.RESISTANCE
+                )
             }
 
             if (isLow) {
-                rawPivots.add(candle.low to LevelSide.SUPPORT)
+                rawPivots.add(
+                    candle.low to LevelSide.SUPPORT
+                )
             }
         }
 
-        val staticLevels = mutableListOf<SupportResistanceLevel>()
+        val staticLevels =
+            mutableListOf<SupportResistanceLevel>()
 
         for (side in LevelSide.values()) {
+
             val points = rawPivots
                 .filter { it.second == side }
                 .map { it.first }
                 .sorted()
 
-            val clusters = mutableListOf<MutableList<Double>>()
+            val clusters =
+                mutableListOf<MutableList<Double>>()
 
             for (price in points) {
+
                 val cluster = clusters.lastOrNull()
 
-                if (cluster != null &&
+                if (
+                    cluster != null &&
                     abs(price - cluster.average()) <= tolerance
                 ) {
                     cluster.add(price)
@@ -82,15 +128,32 @@ object SupportResistanceEngine {
             }
 
             clusters.forEach { cluster ->
+
                 val levelPrice = cluster.average()
 
+                if (!levelPrice.isFinite() || levelPrice <= 0.0) {
+                    return@forEach
+                }
+
                 val isRelevant = when (side) {
-                    LevelSide.SUPPORT -> levelPrice <= currentPrice
-                    LevelSide.RESISTANCE -> levelPrice >= currentPrice
+                    LevelSide.SUPPORT ->
+                        levelPrice <= currentPrice
+
+                    LevelSide.RESISTANCE ->
+                        levelPrice >= currentPrice
                 }
 
                 if (isRelevant) {
+
                     val touches = cluster.size
+
+                    val distancePercent =
+                        abs(currentPrice - levelPrice) /
+                            currentPrice * 100.0
+
+                    if (!distancePercent.isFinite()) {
+                        return@forEach
+                    }
 
                     staticLevels.add(
                         SupportResistanceLevel(
@@ -100,9 +163,7 @@ object SupportResistanceEngine {
                             touches = touches,
                             strength = (touches * 25)
                                 .coerceIn(25, 100),
-                            distancePercent =
-                                abs(currentPrice - levelPrice) /
-                                    currentPrice * 100.0
+                            distancePercent = distancePercent
                         )
                     )
                 }
@@ -111,29 +172,47 @@ object SupportResistanceEngine {
 
         val closes = recent.map { it.close }
 
-        val dynamicValues = mutableListOf<Double>()
+        val dynamicValues =
+            mutableListOf<Double>()
 
         TechnicalIndicators.ema(closes, 20)
-            .lastOrNull()?.let { dynamicValues.add(it) }
+            .lastOrNull()
+            ?.takeIf { it.isFinite() && it > 0.0 }
+            ?.let { dynamicValues.add(it) }
 
         TechnicalIndicators.ema(closes, 50)
-            .lastOrNull()?.let { dynamicValues.add(it) }
+            .lastOrNull()
+            ?.takeIf { it.isFinite() && it > 0.0 }
+            ?.let { dynamicValues.add(it) }
 
         AdvancedIndicators.ichimoku(recent)
-            .lastOrNull()?.kijun?.let {
-                dynamicValues.add(it)
-            }
+            .lastOrNull()
+            ?.kijun
+            ?.takeIf { it.isFinite() && it > 0.0 }
+            ?.let { dynamicValues.add(it) }
 
         val dynamicLevels = dynamicValues
-            .distinctBy { (it / tolerance).toLong() }
+            .distinctBy {
+                (it / tolerance).toLong()
+            }
             .mapNotNull { price ->
 
-                if (price <= 0.0) return@mapNotNull null
+                if (!price.isFinite() || price <= 0.0) {
+                    return@mapNotNull null
+                }
 
                 val side = if (price <= currentPrice) {
                     LevelSide.SUPPORT
                 } else {
                     LevelSide.RESISTANCE
+                }
+
+                val distancePercent =
+                    abs(currentPrice - price) /
+                        currentPrice * 100.0
+
+                if (!distancePercent.isFinite()) {
+                    return@mapNotNull null
                 }
 
                 SupportResistanceLevel(
@@ -142,9 +221,7 @@ object SupportResistanceEngine {
                     side = side,
                     touches = 0,
                     strength = 50,
-                    distancePercent =
-                        abs(currentPrice - price) /
-                            currentPrice * 100.0
+                    distancePercent = distancePercent
                 )
             }
 
