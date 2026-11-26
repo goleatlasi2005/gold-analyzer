@@ -1833,7 +1833,6 @@ if (selectedMarket != "طلای ۱۸ عیار") {
         }   
 }
 }
-@Composable
 
 @Composable
 private fun CombinedPeriodContent(
