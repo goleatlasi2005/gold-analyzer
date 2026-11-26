@@ -1,4 +1,3 @@
-
 package com.goldanalyzer
 
 import kotlinx.coroutines.sync.Mutex
@@ -41,12 +40,14 @@ object TimeframeAnalysisStore {
         return mutex.withLock {
 
             val cached = cache[key]
-            val ttl = cacheTtlMillis(intervalMinutes)
 
             if (
                 !forceRefresh &&
                 cached != null &&
-                nowMillis - cached.loadedAtMillis < ttl
+                isCacheFresh(
+                    cached = cached,
+                    nowMillis = nowMillis
+                )
             ) {
                 return@withLock cached
             }
@@ -69,9 +70,12 @@ object TimeframeAnalysisStore {
             )
 
             val completedCandles = series.candles
+                .asSequence()
+                .filter { isValidCandle(it) }
                 .filter { it.closeTime <= nowMillis }
                 .distinctBy { it.openTime }
                 .sortedBy { it.openTime }
+                .toList()
 
             val signal = SignalEngine.analyze(
                 candles = completedCandles,
@@ -89,7 +93,7 @@ object TimeframeAnalysisStore {
                 series = series,
                 completedCandles = completedCandles,
                 signal = signal,
-                loadedAtMillis = System.currentTimeMillis()
+                loadedAtMillis = nowMillis
             )
 
             cache[key] = result
@@ -98,30 +102,79 @@ object TimeframeAnalysisStore {
         }
     }
 
-    fun invalidate(intervalMinutes: Int? = null) {
-        if (intervalMinutes == null) {
-            cache.clear()
-        } else {
-            val suffix = "_${intervalMinutes}"
-            cache.keys.removeAll { it.endsWith(suffix) }
+    private fun isValidCandle(candle: Candle): Boolean {
 
-            if (intervalMinutes == 0) {
-                cache.keys.removeAll { it.endsWith("_daily") }
-            }
-        }
+        val open = candle.open
+        val high = candle.high
+        val low = candle.low
+        val close = candle.close
+        val volume = candle.volume
+
+        if (candle.openTime <= 0L) return false
+        if (candle.closeTime <= candle.openTime) return false
+
+        if (!open.isFinite()) return false
+        if (!high.isFinite()) return false
+        if (!low.isFinite()) return false
+        if (!close.isFinite()) return false
+        if (!volume.isFinite()) return false
+
+        if (open <= 0.0) return false
+        if (high <= 0.0) return false
+        if (low <= 0.0) return false
+        if (close <= 0.0) return false
+        if (volume < 0.0) return false
+
+        if (high < low) return false
+        if (high < maxOf(open, close)) return false
+        if (low > minOf(open, close)) return false
+
+        return true
     }
 
-    private fun cacheTtlMillis(
-        intervalMinutes: Int?
-    ): Long {
-        return when (intervalMinutes) {
-            5 -> 4 * 60_000L
-            15 -> 14 * 60_000L
-            30 -> 29 * 60_000L
-            60 -> 59 * 60_000L
-            240 -> 239 * 60_000L
-            null -> 12 * 60 * 60_000L
-            else -> 60_000L
+    private fun isCacheFresh(
+        cached: TimeframeAnalysis,
+        nowMillis: Long
+    ): Boolean {
+
+        if (nowMillis < cached.loadedAtMillis) {
+            return false
+        }
+
+        val lastCandle = cached.completedCandles.lastOrNull()
+            ?: return nowMillis - cached.loadedAtMillis < 60_000L
+
+        val intervalMillis = (
+            cached.intervalMinutes?.toLong() ?: 1440L
+        ) * 60_000L
+
+        if (intervalMillis <= 0L) {
+            return false
+        }
+
+        val nextCloseTime = lastCandle.closeTime
+            .takeIf {
+                it <= Long.MAX_VALUE - intervalMillis
+            }
+            ?.plus(intervalMillis)
+            ?: return false
+
+        return nowMillis < nextCloseTime
+    }
+
+    fun invalidate(intervalMinutes: Int? = null) {
+
+        if (intervalMinutes == null) {
+            cache.clear()
+            return
+        }
+
+        val suffix = "_${intervalMinutes}"
+
+        cache.keys.removeAll { it.endsWith(suffix) }
+
+        if (intervalMinutes == 0) {
+            cache.keys.removeAll { it.endsWith("_daily") }
         }
     }
 
@@ -138,6 +191,7 @@ object TimeframeAnalysisStore {
     ): TimeframeConfig {
 
         return when (intervalMinutes) {
+
             5 -> TimeframeConfig(
                 label = "۵ دقیقه",
                 weightPercent = 15,
