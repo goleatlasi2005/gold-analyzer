@@ -1395,6 +1395,9 @@ quoteFresh = ayiarQuoteFresh
                 error = xauShortTermCombinedError,
                 primaryTimeframeLabel = "۳۰ دقیقه",
                 priceInUsd = true
+                livePrice = spotQuote?.priceUsdPerTroyOunce,
+quoteObservedAtMillis = xauQuoteObservedAtMillis,
+quoteFresh = xauQuoteFresh
             )
         }
 
@@ -1432,6 +1435,9 @@ quoteFresh = ayiarQuoteFresh
             error = mediumTermCombinedError,
             primaryTimeframeLabel = "روزانه",
             oneWayMarket = true
+            livePrice = ayiarQuote?.currentPrice,
+quoteObservedAtMillis = ayiarQuoteObservedAtMillis,
+quoteFresh = ayiarQuoteFresh
         )
     }
 
@@ -1442,6 +1448,9 @@ quoteFresh = ayiarQuoteFresh
             error = xauMediumTermCombinedError,
             primaryTimeframeLabel = "روزانه",
             priceInUsd = true
+            livePrice = spotQuote?.priceUsdPerTroyOunce,
+quoteObservedAtMillis = xauQuoteObservedAtMillis,
+quoteFresh = xauQuoteFresh
         )
     }
 
