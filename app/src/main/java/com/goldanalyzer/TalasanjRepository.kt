@@ -44,25 +44,82 @@ class TalasanjRepository(
                 val body = response.body?.string()
                     ?: error("پاسخی از طلاسنج دریافت نشد.")
 
+                if (body.isBlank()) {
+                    error("پاسخ طلاسنج خالی است.")
+                }
+
                 val root = JSONObject(body)
-                val prices = root.getJSONObject("prices")
 
-                val gold18Object = prices.getJSONObject("gram18")
-                val mesghalObject = prices.getJSONObject("mazaneh")
-                val ounceObject = prices.getJSONObject("ounce")
+                val prices = root.optJSONObject("prices")
+                    ?: error("ساختار قیمت‌های طلاسنج معتبر نیست.")
 
-                val gold18 = gold18Object.getLong("price")
-                val mesghal = mesghalObject.getLong("price")
-                val ounce = ounceObject.getDouble("price")
+                val gold18Object = prices.optJSONObject("gram18")
+                    ?: error("قیمت طلای ۱۸ عیار دریافت نشد.")
+
+                val mesghalObject = prices.optJSONObject("mazaneh")
+                    ?: error("قیمت مظنه دریافت نشد.")
+
+                val ounceObject = prices.optJSONObject("ounce")
+                    ?: error("قیمت انس دریافت نشد.")
+
+                fun readPositiveLong(
+                    item: JSONObject,
+                    field: String
+                ): Long {
+                    val value = item.optDouble(field, Double.NaN)
+
+                    if (
+                        !value.isFinite() ||
+                        value <= 0.0 ||
+                        value > Long.MAX_VALUE.toDouble() ||
+                        value % 1.0 != 0.0
+                    ) {
+                        error("مقدار دریافتی قیمت طلاسنج معتبر نیست.")
+                    }
+
+                    return value.toLong()
+                }
+
+                fun readPositiveDouble(
+                    item: JSONObject,
+                    field: String
+                ): Double {
+                    val value = item.optDouble(field, Double.NaN)
+
+                    if (!value.isFinite() || value <= 0.0) {
+                        error("قیمت دریافتی انس معتبر نیست.")
+                    }
+
+                    return value
+                }
 
                 fun readChangePercent(item: JSONObject): Double? {
-                    return item.optDouble("change_pct", Double.NaN)
-                        .takeIf { it.isFinite() }
+                    if (!item.has("change_pct")) return null
+
+                    val value = item.optDouble(
+                        "change_pct",
+                        Double.NaN
+                    )
+
+                    return value.takeIf {
+                        it.isFinite()
+                    }
                 }
 
-                if (gold18 <= 0L || mesghal <= 0L || ounce <= 0.0) {
-                    error("قیمت دریافتی طلاسنج معتبر نیست.")
-                }
+                val gold18 = readPositiveLong(
+                    gold18Object,
+                    "price"
+                )
+
+                val mesghal = readPositiveLong(
+                    mesghalObject,
+                    "price"
+                )
+
+                val ounce = readPositiveDouble(
+                    ounceObject,
+                    "price"
+                )
 
                 TalasanjPrices(
                     gold18Toman = gold18,
