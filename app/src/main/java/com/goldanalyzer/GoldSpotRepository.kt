@@ -1,6 +1,7 @@
 
 package com.goldanalyzer
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
@@ -9,6 +10,7 @@ import org.json.JSONObject
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
+import java.util.concurrent.TimeUnit
 
 data class GoldSpotQuote(
     val priceUsdPerTroyOunce: Double,
@@ -21,7 +23,12 @@ data class GoldSpotQuote(
 )
 
 class GoldSpotRepository(
-    private val httpClient: OkHttpClient = OkHttpClient()
+    private val httpClient: OkHttpClient = OkHttpClient.Builder()
+        .connectTimeout(10, TimeUnit.SECONDS)
+        .readTimeout(15, TimeUnit.SECONDS)
+        .writeTimeout(10, TimeUnit.SECONDS)
+        .callTimeout(20, TimeUnit.SECONDS)
+        .build()
 ) {
     private val historyLock = Any()
     private var previousCloseCache: Double? = null
@@ -227,6 +234,8 @@ class GoldSpotRepository(
                 }
 
                 result
+            } catch (e: CancellationException) {
+                throw e
             } catch (_: Exception) {
                 null
             }
