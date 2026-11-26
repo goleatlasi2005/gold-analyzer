@@ -1298,6 +1298,7 @@ oneWayMarket = true,
 livePrice = ayiarQuote?.currentPrice,
 quoteObservedAtMillis = ayiarQuoteObservedAtMillis,
 quoteFresh = ayiarQuoteFresh
+                                    )
                             }  
                         }  
                     }  
