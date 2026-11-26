@@ -77,18 +77,39 @@ class AyiarRepository(
         val savedAtMillis: Long
     )
 
-    // حافظه مشترک کندل‌ها برای سیگنال اختصاصی و ترکیبی
     private val candleCache =
         ConcurrentHashMap<String, CachedSeries>()
 
-    // جلوگیری از درخواست هم‌زمان تکراری برای یک تایم‌فریم
     private val candleLocks =
         ConcurrentHashMap<String, Mutex>()
+
+    /**
+     * اعتبارسنجی مشترک اطلاعات کندل
+     */
+    private fun isValidCandle(candle: Candle): Boolean {
+
+        return candle.openTime > 0L &&
+            candle.closeTime > candle.openTime &&
+            candle.open.isFinite() &&
+            candle.high.isFinite() &&
+            candle.low.isFinite() &&
+            candle.close.isFinite() &&
+            candle.volume.isFinite() &&
+            candle.open > 0.0 &&
+            candle.high > 0.0 &&
+            candle.low > 0.0 &&
+            candle.close > 0.0 &&
+            candle.volume >= 0.0 &&
+            candle.high >= candle.low &&
+            candle.high >= maxOf(candle.open, candle.close) &&
+            candle.low <= minOf(candle.open, candle.close)
+    }
 
     private fun getCachedSeries(
         key: String,
         durationMillis: Long
     ): CandleSeries? {
+
         val cached = candleCache[key] ?: return null
         val age = System.currentTimeMillis() - cached.savedAtMillis
 
@@ -123,16 +144,32 @@ class AyiarRepository(
             val root = JSONObject(body)
             val info = root.optJSONObject("closingPriceInfo") ?: root
 
-            val lastPrice = info.optDouble("pDrCotVal", 0.0)
-            val closingPrice = info.optDouble("pClosing", 0.0)
-            val previousClose = info.optDouble("priceYesterday", 0.0)
+            val rawLastPrice = info.optDouble("pDrCotVal", 0.0)
+            val rawClosingPrice = info.optDouble("pClosing", 0.0)
+            val rawPreviousClose = info.optDouble("priceYesterday", 0.0)
+
+            val lastPrice = rawLastPrice.takeIf {
+                it.isFinite() && it > 0.0
+            } ?: 0.0
+
+            val closingPrice = rawClosingPrice.takeIf {
+                it.isFinite() && it > 0.0
+            } ?: 0.0
+
+            val previousClose = rawPreviousClose.takeIf {
+                it.isFinite() && it >= 0.0
+            } ?: 0.0
 
             if (lastPrice <= 0.0 && closingPrice <= 0.0) {
                 error("قیمت معتبر عیار در پاسخ TSETMC وجود ندارد")
             }
 
             AyiarQuote(
-                currentPrice = if (lastPrice > 0.0) lastPrice else closingPrice,
+                currentPrice = if (lastPrice > 0.0) {
+                    lastPrice
+                } else {
+                    closingPrice
+                },
                 closingPrice = closingPrice,
                 previousClose = previousClose,
                 date = info.optLong("dEven", 0L),
@@ -142,7 +179,6 @@ class AyiarRepository(
     }
 
     // دریافت کندل‌های صندوق عیار از بورس‌ویو مفید
-    // سیگنال اختصاصی و ترکیبی از همین داده مشترک استفاده می‌کنند.
     suspend fun getCandles(
         date: LocalDate = LocalDate.now(TEHRAN_ZONE),
         intervalMinutes: Int = 5,
@@ -227,42 +263,49 @@ class AyiarRepository(
                         volumes.length()
                     )
 
+                    val durationMillis =
+                        intervalMinutes.toLong() * 60_000L
+
                     val candles = mutableListOf<Candle>()
 
                     for (i in 0 until count) {
-                        val timestampSeconds = timestamps.optLong(i, 0L)
 
-                        val open = opens.optDouble(i, 0.0)
-                        val high = highs.optDouble(i, 0.0)
-                        val low = lows.optDouble(i, 0.0)
-                        val close = closes.optDouble(i, 0.0)
-                        val volume = volumes.optDouble(i, 0.0)
+                        val timestampSeconds =
+                            timestamps.optLong(i, 0L)
+
+                        val open = opens.optDouble(i, Double.NaN)
+                        val high = highs.optDouble(i, Double.NaN)
+                        val low = lows.optDouble(i, Double.NaN)
+                        val close = closes.optDouble(i, Double.NaN)
+                        val volume = volumes.optDouble(i, Double.NaN)
 
                         if (
                             timestampSeconds <= 0L ||
-                            open <= 0.0 ||
-                            high <= 0.0 ||
-                            low <= 0.0 ||
-                            close <= 0.0 ||
-                            high < low
+                            timestampSeconds >
+                                (Long.MAX_VALUE - durationMillis) / 1000L
                         ) {
                             continue
                         }
 
                         val openTime = timestampSeconds * 1000L
+                        val closeTime =
+                            openTime + durationMillis - 1L
 
-                        candles.add(
-                            Candle(
-                                openTime = openTime,
-                                open = open,
-                                high = high,
-                                low = low,
-                                close = close,
-                                volume = volume.coerceAtLeast(0.0),
-                                closeTime = openTime +
-                                    intervalMinutes * 60_000L - 1L
-                            )
+                        val candle = Candle(
+                            openTime = openTime,
+                            open = open,
+                            high = high,
+                            low = low,
+                            close = close,
+                            volume = volume,
+                            closeTime = closeTime
                         )
+
+                        if (!isValidCandle(candle)) {
+                            continue
+                        }
+
+                        candles.add(candle)
                     }
 
                     val sortedCandles = candles
@@ -291,7 +334,7 @@ class AyiarRepository(
         }
     }
 
-    // تاریخچه روزانه نیز در همان حافظه مشترک نگهداری می‌شود.
+    // دریافت تاریخچه روزانه عیار
     suspend fun getDailyCandles(
         count: Int = 500,
         forceRefresh: Boolean = false
@@ -341,12 +384,17 @@ class AyiarRepository(
                     val candles = mutableListOf<Candle>()
 
                     for (i in 0 until history.length()) {
+
                         val item = history.optJSONObject(i) ?: continue
 
                         val dateValue = item.optLong("dEven", 0L)
-                        if (dateValue <= 0L) continue
 
-                        val dateText = dateValue.toString().padStart(8, '0')
+                        if (dateValue <= 0L) {
+                            continue
+                        }
+
+                        val dateText =
+                            dateValue.toString().padStart(8, '0')
 
                         val date = try {
                             LocalDate.parse(dateText, DATE_FORMAT)
@@ -354,48 +402,58 @@ class AyiarRepository(
                             continue
                         }
 
-                        val open = item.optDouble("priceFirst", 0.0)
-                        val high = item.optDouble("priceMax", 0.0)
-                        val low = item.optDouble("priceMin", 0.0)
-                        val close = item.optDouble("pClosing", 0.0)
-                        val volume = item.optDouble("qTotTran5J", 0.0)
+                        val open = item.optDouble("priceFirst", Double.NaN)
+                        val high = item.optDouble("priceMax", Double.NaN)
+                        val low = item.optDouble("priceMin", Double.NaN)
+                        val close = item.optDouble("pClosing", Double.NaN)
+                        val volume = item.optDouble("qTotTran5J", Double.NaN)
 
-                        if (
-                            open <= 0.0 ||
-                            high <= 0.0 ||
-                            low <= 0.0 ||
-                            close <= 0.0 ||
-                            high < low
-                        ) {
+                        val openTime = try {
+                            date.atStartOfDay(TEHRAN_ZONE)
+                                .toInstant()
+                                .toEpochMilli()
+                        } catch (_: Exception) {
                             continue
                         }
 
-                        val openTime = date
-                            .atStartOfDay(TEHRAN_ZONE)
-                            .toInstant()
-                            .toEpochMilli()
+                        val closeTime = try {
+                            date.plusDays(1)
+                                .atStartOfDay(TEHRAN_ZONE)
+                                .toInstant()
+                                .toEpochMilli() - 1L
+                        } catch (_: Exception) {
+                            continue
+                        }
 
-                        candles.add(
-                            Candle(
-                                openTime = openTime,
-                                open = open,
-                                high = high,
-                                low = low,
-                                close = close,
-                                volume = volume.coerceAtLeast(0.0),
-                                closeTime = openTime + 86_400_000L - 1L
-                            )
+                        val candle = Candle(
+                            openTime = openTime,
+                            open = open,
+                            high = high,
+                            low = low,
+                            close = close,
+                            volume = volume,
+                            closeTime = closeTime
                         )
+
+                        if (!isValidCandle(candle)) {
+                            continue
+                        }
+
+                        candles.add(candle)
                     }
 
-                    if (candles.isEmpty()) {
+                    val sortedCandles = candles
+                        .distinctBy { it.openTime }
+                        .sortedBy { it.openTime }
+
+                    if (sortedCandles.isEmpty()) {
                         error("هیچ کندل روزانه معتبری برای عیار دریافت نشد")
                     }
 
                     CandleSeries(
                         symbol = "عیار",
                         interval = "1d",
-                        candles = candles.sortedBy { it.openTime }
+                        candles = sortedCandles
                     )
                 }
             }
@@ -411,6 +469,7 @@ class AyiarRepository(
 
     // پاک‌کردن حافظه در صورت نیاز به دریافت اجباری داده جدید
     fun clearCandleCache(intervalMinutes: Int? = null) {
+
         if (intervalMinutes == null) {
             candleCache.clear()
         } else {
