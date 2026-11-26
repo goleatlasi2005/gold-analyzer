@@ -430,16 +430,26 @@ LaunchedEffect(selectedMarket) {
                     priceLoading = spotQuote == null  
                     try {  
                         val talasanj = talasanjRepository.getPrices()
-val observedAt = Instant.parse(talasanj.updatedAt).toEpochMilli()
-val ageSeconds = ((System.currentTimeMillis() - observedAt) / 1000L)
-    .coerceAtLeast(0L)
+val observedAt =
+    Instant.parse(talasanj.updatedAt).toEpochMilli()
 
+val now = System.currentTimeMillis()
+
+if (observedAt <= 0L || observedAt > now + 60_000L) {
+    error("زمان ثبت قیمت انس معتبر نیست.")
+}
+
+val ageSeconds =
+    ((now - observedAt) / 1000L).coerceAtLeast(0L)
+
+val isActuallyFresh =
+    observedAt <= now && ageSeconds <= 180L
 spotQuote = GoldSpotQuote(
     priceUsdPerTroyOunce = talasanj.ounceUsd,
     source = "Talasanj",
     observedAtMillis = observedAt,
     ageSeconds = ageSeconds,
-    isFresh = ageSeconds <= 180L,
+    isFresh = isActuallyFresh,
     previousDailyCloseUsd = spotQuote?.previousDailyCloseUsd,
 changePercent = talasanj.ounceChangePercent
 )
