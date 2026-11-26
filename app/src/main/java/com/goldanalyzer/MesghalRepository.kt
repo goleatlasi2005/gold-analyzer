@@ -15,6 +15,7 @@ import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import java.util.TimeZone
+import java.util.concurrent.TimeUnit
 
 data class MesghalQuote(
     val currentPriceRial: Double,
@@ -34,7 +35,12 @@ data class MesghalPrices(
 )
 
 class MesghalRepository(
-    private val httpClient: OkHttpClient = OkHttpClient(),
+    private val httpClient: OkHttpClient = OkHttpClient.Builder()
+        .connectTimeout(10, TimeUnit.SECONDS)
+        .readTimeout(15, TimeUnit.SECONDS)
+        .writeTimeout(10, TimeUnit.SECONDS)
+        .callTimeout(20, TimeUnit.SECONDS)
+        .build(),
     private val talasanjRepository: TalasanjRepository = TalasanjRepository()
 ) {
 
