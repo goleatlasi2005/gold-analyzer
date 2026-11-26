@@ -27,6 +27,7 @@ import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import java.util.Date
 import java.util.Locale
@@ -80,6 +81,8 @@ fun TgjuGoldPricePanel() {
                 talasanjLoading = talasanjPrices == null
                 talasanjPrices = talasanjRepository.getPrices()
                 talasanjError = null
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 talasanjError =
                     e.message ?: "خطا در دریافت قیمت طلاسنج"
@@ -98,6 +101,8 @@ fun TgjuGoldPricePanel() {
                 tgjuLoading = tgjuQuote == null
                 tgjuQuote = tgjuRepository.getLivePrice()
                 tgjuError = null
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 tgjuError =
                     e.message ?: "خطا در دریافت قیمت TGJU"
@@ -116,6 +121,8 @@ fun TgjuGoldPricePanel() {
                 talineLoading = talineQuote == null
                 talineQuote = talineRepository.getLivePrice()
                 talineError = null
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 talineError =
                     e.message ?: "خطا در دریافت قیمت طلاین"
