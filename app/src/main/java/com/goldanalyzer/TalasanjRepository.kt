@@ -23,6 +23,8 @@ class TalasanjRepository(
     private val httpClient: OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(15, TimeUnit.SECONDS)
         .readTimeout(20, TimeUnit.SECONDS)
+        .writeTimeout(10, TimeUnit.SECONDS)
+        .callTimeout(25, TimeUnit.SECONDS)
         .build()
 ) {
 
