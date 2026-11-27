@@ -2403,7 +2403,105 @@ day != DayOfWeek.FRIDAY
 return isTradingDay && now.hour >= 12 && now.hour < 18
 
 }
+private data class AyiarSignalPricing(
+    val signal: TradingSignal,
+    val sourceNote: String
+)
 
+private fun priceAyiarSignal(
+    signal: TradingSignal,
+    orderBook: AyiarOrderBook?,
+    currentQuotePrice: Double?
+): AyiarSignalPricing {
+
+    val fallback = AyiarSignalPricing(
+        signal = signal,
+        sourceNote = "قیمت تخمینی بر اساس آخرین کندل کامل؛ دفتر سفارش معتبر در دسترس نیست."
+    )
+
+    if (signal.type == SignalType.HOLD) {
+        return fallback
+    }
+
+    val book = orderBook ?: return fallback
+
+    val age = System.currentTimeMillis() - book.fetchedAtMillis
+
+    if (!isAyiarMarketOpen() || age !in 0L..15_000L) {
+        return fallback
+    }
+
+    val bid = book.bestBid
+    val ask = book.bestAsk
+    val quote = currentQuotePrice ?: return fallback
+
+    if (
+        !bid.isFinite() ||
+        !ask.isFinite() ||
+        !quote.isFinite() ||
+        bid <= 0.0 ||
+        ask < bid ||
+        quote <= 0.0 ||
+        book.bidVolume <= 0L ||
+        book.askVolume <= 0L
+    ) {
+        return fallback
+    }
+
+    val midpoint = (bid + ask) / 2.0
+    val spreadPercent = ((ask - bid) / midpoint) * 100.0
+    val quoteDifferencePercent =
+        (kotlin.math.abs(midpoint - quote) / quote) * 100.0
+
+    if (
+        spreadPercent > 1.0 ||
+        quoteDifferencePercent > 3.0
+    ) {
+        return fallback
+    }
+
+    val atr = signal.atr
+
+    if (!atr.isFinite() || atr <= 0.0) {
+        return fallback
+    }
+
+    val entry = if (signal.type == SignalType.BUY) ask else bid
+    val risk = atr * 1.5
+
+    val stopLoss: Double
+    val takeProfit1: Double
+    val takeProfit2: Double
+    val takeProfit3: Double
+
+    if (signal.type == SignalType.BUY) {
+        stopLoss = entry - risk
+        takeProfit1 = entry + risk
+        takeProfit2 = entry + risk * 2.0
+        takeProfit3 = entry + risk * 3.0
+    } else {
+        stopLoss = entry + risk
+        takeProfit1 = entry - risk
+        takeProfit2 = entry - risk * 2.0
+        takeProfit3 = entry - risk * 3.0
+    }
+
+    return AyiarSignalPricing(
+        signal = signal.copy(
+            entryPrice = entry,
+            stopLoss = stopLoss,
+            takeProfit1 = takeProfit1,
+            takeProfit2 = takeProfit2,
+            takeProfit3 = takeProfit3,
+            riskRewardRatio = 3.0
+        ),
+        sourceNote = if (signal.type == SignalType.BUY) {
+            "قیمت ورود بر اساس بهترین سفارش فروش (Ask) در دفتر سفارش TSETMC محاسبه شده است."
+        } else {
+            "قیمت فروش بر اساس بهترین سفارش خرید (Bid) در دفتر سفارش TSETMC محاسبه شده است."
+        }
+    )
+}
 private fun formatAyiarDateTime(
 dateValue: Long,
 timeValue: Long
