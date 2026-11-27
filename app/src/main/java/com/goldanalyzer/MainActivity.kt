@@ -718,6 +718,13 @@ val tradingSignal = if (selectedMarket == "صندوق طلای عیار") {
 } else {  
     null  
 }  
+val ayiarSignalPricing = tradingSignal?.let { signal ->
+    priceAyiarSignal(
+        signal = signal,
+        orderBook = ayiarOrderBook,
+        currentQuotePrice = ayiarQuote?.currentPrice
+    )
+}
 // سیگنال اختصاصی انس جهانی
 val xauTradingSignal =
     if (selectedMarket == "انس جهانی طلا") {
@@ -1295,7 +1302,7 @@ if (selectedMarket != "طلای ۱۸ عیار") {
 
                             else -> {  
                                 TradingSignalContent(  
-                                    signal = tradingSignal,  
+                                    signal = ayiarSignalPricing?.signal ?: tradingSignal,  
                                     candleCount = activeTimeframeAnalysis.completedCandles.size,  
                                     candleTime = activeTimeframeAnalysis.completedCandles.lastOrNull()?.closeTime,
 oneWayMarket = true,
