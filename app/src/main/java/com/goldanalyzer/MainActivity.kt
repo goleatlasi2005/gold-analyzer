@@ -518,9 +518,10 @@ changePercent = talasanj.ounceChangePercent
                 if (isAyiarMarketOpen()) {  
                     refreshMutex.withLock {  
                         priceLoading = ayiarQuote == null  
-                        try {  
-                            loadAyiarPrice()  
-                            priceError = null  
+                        try {
+    loadAyiarPrice()
+    ayiarOrderBook = ayiarRepository.getOrderBook()
+    priceError = null
                         } catch (e: CancellationException) {
                             throw e
                         } catch (e: Exception) {  
