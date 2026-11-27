@@ -69,7 +69,10 @@ var spotQuote by remember {
 
 var ayiarQuote by remember {  
     mutableStateOf<AyiarQuote?>(null)  
-}  
+} 
+var ayiarOrderBook by remember {
+    mutableStateOf<AyiarOrderBook?>(null)
+}
 var mesghalQuote by remember {
     mutableStateOf<MesghalQuote?>(null)
 }
