@@ -21,7 +21,13 @@ data class AyiarQuote(
     val date: Long,
     val time: Long
 )
-
+data class AyiarOrderBook(
+    val bestBid: Double,
+    val bestAsk: Double,
+    val bidVolume: Long,
+    val askVolume: Long,
+    val fetchedAtMillis: Long
+)
 class AyiarRepository(
     private val httpClient: OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(20, TimeUnit.SECONDS)
