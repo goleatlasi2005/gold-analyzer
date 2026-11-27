@@ -184,6 +184,72 @@ class AyiarRepository(
         }
     }
 
+    // دریافت بهترین قیمت خرید و فروش از دفتر سفارش‌های TSETMC
+    suspend fun getOrderBook(): AyiarOrderBook? = withContext(Dispatchers.IO) {
+
+        try {
+            val url =
+                "https://cdn.tsetmc.com/api/BestLimits/$INSTRUMENT_CODE"
+
+            val request = Request.Builder()
+                .url(url)
+                .header("Accept", "application/json")
+                .header("User-Agent", "Mozilla/5.0")
+                .header("Cache-Control", "no-cache")
+                .get()
+                .build()
+
+            httpClient.newCall(request).execute().use { response ->
+
+                if (!response.isSuccessful) {
+                    return@withContext null
+                }
+
+                val body = response.body?.string()
+                    ?: return@withContext null
+
+                val root = JSONObject(body)
+                val limits = root.optJSONArray("bestLimits")
+                    ?: return@withContext null
+
+                if (limits.length() == 0) {
+                    return@withContext null
+                }
+
+                val best = limits.optJSONObject(0)
+                    ?: return@withContext null
+
+                val bid = best.optDouble("pMeDem", 0.0)
+                val ask = best.optDouble("pMeOf", 0.0)
+
+                val bidVolume = best.optLong("qTitMeDem", 0L)
+                val askVolume = best.optLong("qTitMeOf", 0L)
+
+                if (
+                    !bid.isFinite() ||
+                    !ask.isFinite() ||
+                    bid <= 0.0 ||
+                    ask <= 0.0 ||
+                    ask < bid ||
+                    bidVolume <= 0L ||
+                    askVolume <= 0L
+                ) {
+                    return@withContext null
+                }
+
+                AyiarOrderBook(
+                    bestBid = bid,
+                    bestAsk = ask,
+                    bidVolume = bidVolume,
+                    askVolume = askVolume,
+                    fetchedAtMillis = System.currentTimeMillis()
+                )
+            }
+        } catch (_: Exception) {
+            null
+        }
+    }
+
     // دریافت کندل‌های صندوق عیار از بورس‌ویو مفید
     suspend fun getCandles(
         date: LocalDate = LocalDate.now(TEHRAN_ZONE),
