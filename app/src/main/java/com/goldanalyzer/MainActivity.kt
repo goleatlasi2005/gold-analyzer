@@ -1295,9 +1295,7 @@ if (selectedMarket != "طلای ۱۸ عیار") {
                                     candleCount = activeTimeframeAnalysis.completedCandles.size,  
                                     candleTime = activeTimeframeAnalysis.completedCandles.lastOrNull()?.closeTime,
 oneWayMarket = true,
-livePrice = ayiarQuote?.currentPrice,
-quoteObservedAtMillis = ayiarQuoteObservedAtMillis,
-quoteFresh = ayiarQuoteFresh
+validateLivePrice = false
                                     )
                             }  
                         }  
@@ -1383,9 +1381,7 @@ if (selectedMarket != "طلای ۱۸ عیار") {
                 error = shortTermCombinedError,
                 primaryTimeframeLabel = "۳۰ دقیقه",
                 oneWayMarket = true,
-                livePrice = ayiarQuote?.currentPrice,
-quoteObservedAtMillis = ayiarQuoteObservedAtMillis,
-quoteFresh = ayiarQuoteFresh
+                validateLivePrice = false
             )
         }
 
@@ -1436,9 +1432,7 @@ quoteFresh = xauQuoteFresh
             error = mediumTermCombinedError,
             primaryTimeframeLabel = "روزانه",
             oneWayMarket = true,
-            livePrice = ayiarQuote?.currentPrice,
-quoteObservedAtMillis = ayiarQuoteObservedAtMillis,
-quoteFresh = ayiarQuoteFresh
+            validateLivePrice = false
         )
     }
 
@@ -1844,7 +1838,8 @@ private fun CombinedPeriodContent(
     priceInUsd: Boolean = false,
     livePrice: Double? = null,
     quoteObservedAtMillis: Long? = null,
-    quoteFresh: Boolean = false
+    quoteFresh: Boolean = false,
+    validateLivePrice: Boolean = true
 ) {
     if (period == null) {
         if (loading) {
@@ -1909,12 +1904,16 @@ private fun CombinedPeriodContent(
                     fontSize = 12.sp
                 )
             } else {
-                val inactiveReason = SignalFreshness.inactiveReason(
-                    signal = timeframeSignal,
-                    livePrice = livePrice,
-                    observedAtMillis = quoteObservedAtMillis,
-                    quoteFresh = quoteFresh
-                )
+                val inactiveReason = if (validateLivePrice) {
+                    SignalFreshness.inactiveReason(
+                        signal = timeframeSignal,
+                        livePrice = livePrice,
+                        observedAtMillis = quoteObservedAtMillis,
+                        quoteFresh = quoteFresh
+                    )
+                } else {
+                    null
+                }
 
                 if (inactiveReason != null) {
                     Text(
@@ -1984,7 +1983,8 @@ private fun CombinedPeriodContent(
             showRiskLevels = false,
             livePrice = livePrice,
             quoteObservedAtMillis = quoteObservedAtMillis,
-            quoteFresh = quoteFresh
+            quoteFresh = quoteFresh,
+            validateLivePrice = validateLivePrice
         )
     }
 
@@ -2087,7 +2087,8 @@ private fun TradingSignalContent(
     showRiskLevels: Boolean = true,
     livePrice: Double? = null,
     quoteObservedAtMillis: Long? = null,
-    quoteFresh: Boolean = false
+    quoteFresh: Boolean = false,
+    validateLivePrice: Boolean = true
 ) {
     val formatPrice: (Double) -> String = { value ->
         if (priceInUsd) {
@@ -2097,12 +2098,16 @@ private fun TradingSignalContent(
         }
     }
 
-    val inactiveReason = SignalFreshness.inactiveReason(
-        signal = signal,
-        livePrice = livePrice,
-        observedAtMillis = quoteObservedAtMillis,
-        quoteFresh = quoteFresh
-    )
+    val inactiveReason = if (validateLivePrice) {
+        SignalFreshness.inactiveReason(
+            signal = signal,
+            livePrice = livePrice,
+            observedAtMillis = quoteObservedAtMillis,
+            quoteFresh = quoteFresh
+        )
+    } else {
+        null
+    }
 
     val signalIsInactive = inactiveReason != null
 
