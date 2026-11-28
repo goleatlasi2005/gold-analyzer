@@ -1248,7 +1248,11 @@ if (tgju != null && ara != null) {
         color = TextGray
     )
 }
-if (talasanj != null && tgju != null && ara != null) {
+if (
+    talasanj?.isFresh == true &&
+    tgju?.isFresh == true &&
+    ara?.isFresh == true
+) {
     val diffTalasanjTgju = kotlin.math.abs(
         talasanj.currentPriceRial - tgju.currentPriceRial
     )
