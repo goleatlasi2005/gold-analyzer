@@ -16,6 +16,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.foundation.clickable
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -1494,7 +1495,8 @@ priceInUsd = true,
 livePrice = spotQuote?.priceUsdPerTroyOunce,
 quoteObservedAtMillis = xauQuoteObservedAtMillis,
 quoteFresh = xauQuoteFresh,
-                                    candleFreshnessIntervalMinutes = intervalMinutes
+                                    candleFreshnessIntervalMinutes = intervalMinutes,
+                                    signalLifecycleKey = "individual-${intervalMinutes}"
                                 )
                             }
                         }
@@ -2052,7 +2054,19 @@ private fun CombinedPeriodContent(
                     fontSize = 12.sp
                 )
             } else {
-                val liveInactiveReason = if (validateLivePrice) {
+                val timeframeInterval = timeframeIntervalMinutes(timeframe.timeframeLabel)
+                val inactiveReason = if (validateCandleFreshness) {
+                    rememberXauSignalInactiveReason(
+                        signal = timeframeSignal,
+                        candleTime = timeframe.lastCandleTime,
+                        intervalMinutes = timeframeInterval,
+                        lifecycleKey = "combined-component-${period.title}-${timeframe.timeframeLabel}",
+                        livePrice = livePrice,
+                        quoteObservedAtMillis = quoteObservedAtMillis,
+                        quoteFresh = quoteFresh,
+                        validateLivePrice = validateLivePrice
+                    )
+                } else if (validateLivePrice) {
                     SignalFreshness.inactiveReason(
                         signal = timeframeSignal,
                         livePrice = livePrice,
@@ -2062,17 +2076,6 @@ private fun CombinedPeriodContent(
                 } else {
                     null
                 }
-                val candleInactiveReason = if (
-                    validateCandleFreshness && timeframeSignal.type != SignalType.HOLD
-                ) {
-                    xauCandleInactiveReason(
-                        candleTime = timeframe.lastCandleTime,
-                        intervalMinutes = timeframeIntervalMinutes(timeframe.timeframeLabel)
-                    )
-                } else {
-                    null
-                }
-                val inactiveReason = candleInactiveReason ?: liveInactiveReason
 
                 if (inactiveReason != null) {
                     Text(
@@ -2161,7 +2164,12 @@ private fun CombinedPeriodContent(
             } else {
                 null
             },
-            entryPriceNote = ayiarCombinedPricing?.sourceNote
+            entryPriceNote = ayiarCombinedPricing?.sourceNote,
+            signalLifecycleKey = if (validateCandleFreshness) {
+                "combined-main-${period.title}-$primaryTimeframeLabel"
+            } else {
+                null
+            }
         )
     }
 
@@ -2267,7 +2275,8 @@ private fun TradingSignalContent(
     quoteFresh: Boolean = false,
     validateLivePrice: Boolean = true,
     candleFreshnessIntervalMinutes: Int? = null,
-    entryPriceNote: String? = null
+    entryPriceNote: String? = null,
+    signalLifecycleKey: String? = null
 ) {
     val formatPrice: (Double) -> String = { value ->
         if (priceInUsd) {
@@ -2277,7 +2286,18 @@ private fun TradingSignalContent(
         }
     }
 
-    val liveInactiveReason = if (validateLivePrice) {
+    val inactiveReason = if (candleFreshnessIntervalMinutes != null) {
+        rememberXauSignalInactiveReason(
+            signal = signal,
+            candleTime = candleTime,
+            intervalMinutes = candleFreshnessIntervalMinutes,
+            lifecycleKey = signalLifecycleKey ?: "xau-signal",
+            livePrice = livePrice,
+            quoteObservedAtMillis = quoteObservedAtMillis,
+            quoteFresh = quoteFresh,
+            validateLivePrice = validateLivePrice
+        )
+    } else if (validateLivePrice) {
         SignalFreshness.inactiveReason(
             signal = signal,
             livePrice = livePrice,
@@ -2287,17 +2307,6 @@ private fun TradingSignalContent(
     } else {
         null
     }
-    val candleInactiveReason = if (
-        candleFreshnessIntervalMinutes != null && signal.type != SignalType.HOLD
-    ) {
-        xauCandleInactiveReason(
-            candleTime = candleTime,
-            intervalMinutes = candleFreshnessIntervalMinutes
-        )
-    } else {
-        null
-    }
-    val inactiveReason = candleInactiveReason ?: liveInactiveReason
 
     val signalIsInactive = inactiveReason != null
 
@@ -2571,6 +2580,74 @@ private fun timeframeIntervalMinutes(label: String): Int? {
  * سیگنال XAU فقط تا زمانی قابل اجراست که کندل تازه‌ای در بازه مورد انتظار دریافت شود.
  * این کنترل فقط در کارت‌های انس فعال می‌شود و منطق عیار را تغییر نمی‌دهد.
  */
+/**
+ * انقضای ناشی از دورشدن قیمت از محدوده ورود را تا تشکیل کندل بعدی نگه می‌دارد.
+ * خطاهای موقت دریافت قیمت یا کهنه‌شدن قیمت را دائمی نمی‌کند.
+ */
+@Composable
+private fun rememberXauSignalInactiveReason(
+    signal: TradingSignal,
+    candleTime: Long?,
+    intervalMinutes: Int?,
+    lifecycleKey: String,
+    livePrice: Double?,
+    quoteObservedAtMillis: Long?,
+    quoteFresh: Boolean,
+    validateLivePrice: Boolean
+): String? {
+    if (signal.type == SignalType.HOLD) return null
+
+    val context = LocalContext.current.applicationContext
+    val usableCandleTime = candleTime?.takeIf { it > 0L }
+
+    var savedReason by remember(lifecycleKey, usableCandleTime) {
+        mutableStateOf(
+            if (usableCandleTime != null) {
+                XauSignalLifecycleStore.getExpiredReason(
+                    context = context,
+                    lifecycleKey = lifecycleKey,
+                    candleTime = usableCandleTime
+                )
+            } else {
+                null
+            }
+        )
+    }
+
+    val candleReason = xauCandleInactiveReason(
+        candleTime = candleTime,
+        intervalMinutes = intervalMinutes
+    )
+    val liveReason = if (validateLivePrice) {
+        SignalFreshness.inactiveReason(
+            signal = signal,
+            livePrice = livePrice,
+            observedAtMillis = quoteObservedAtMillis,
+            quoteFresh = quoteFresh
+        )
+    } else {
+        null
+    }
+    val currentReason = candleReason ?: liveReason
+
+    LaunchedEffect(lifecycleKey, usableCandleTime, currentReason) {
+        val hasMovedOutsideEntryRange =
+            currentReason?.contains("محدوده مجاز ورود") == true
+
+        if (usableCandleTime != null && hasMovedOutsideEntryRange) {
+            XauSignalLifecycleStore.markExpired(
+                context = context,
+                lifecycleKey = lifecycleKey,
+                candleTime = usableCandleTime,
+                reason = currentReason!!
+            )
+            savedReason = currentReason
+        }
+    }
+
+    return savedReason ?: currentReason
+}
+
 private fun xauCandleInactiveReason(
     candleTime: Long?,
     intervalMinutes: Int?,
