@@ -689,7 +689,9 @@ LaunchedEffect(selectedMarket) {
     else if (selectedMarket == "انس جهانی طلا") {
         while (true) {
             refreshXauShortTermCombined()
-            delay(5 * 60 * 1000L)
+            // همگام با بسته‌شدن کندل‌های ۵ دقیقه‌ای؛ این زمان‌بندی
+            // بسته‌شدن کندل‌های ۱۵ و ۳۰ دقیقه‌ای را نیز پوشش می‌دهد.
+            delay(delayUntilNextCandleCloseMillis(5))
         }
     }
 }
@@ -1370,7 +1372,8 @@ entryPriceNote = ayiarSignalPricing?.sourceNote
 priceInUsd = true,
 livePrice = spotQuote?.priceUsdPerTroyOunce,
 quoteObservedAtMillis = xauQuoteObservedAtMillis,
-quoteFresh = xauQuoteFresh
+quoteFresh = xauQuoteFresh,
+                                    candleFreshnessIntervalMinutes = intervalMinutes
                                 )
                             }
                         }
@@ -1411,7 +1414,8 @@ if (selectedMarket != "طلای ۱۸ عیار") {
                 priceInUsd = true,
                 livePrice = spotQuote?.priceUsdPerTroyOunce,
 quoteObservedAtMillis = xauQuoteObservedAtMillis,
-quoteFresh = xauQuoteFresh
+quoteFresh = xauQuoteFresh,
+                validateCandleFreshness = true
             )
         }
 
@@ -1464,7 +1468,8 @@ quoteFresh = xauQuoteFresh
             priceInUsd = true,
             livePrice = spotQuote?.priceUsdPerTroyOunce,
 quoteObservedAtMillis = xauQuoteObservedAtMillis,
-quoteFresh = xauQuoteFresh
+quoteFresh = xauQuoteFresh,
+            validateCandleFreshness = true
         )
     }
 
@@ -1859,6 +1864,7 @@ private fun CombinedPeriodContent(
     quoteObservedAtMillis: Long? = null,
     quoteFresh: Boolean = false,
     validateLivePrice: Boolean = true,
+    validateCandleFreshness: Boolean = false,
     ayiarOrderBook: AyiarOrderBook? = null,
     ayiarCurrentPrice: Double? = null
 ) {
@@ -1925,7 +1931,7 @@ private fun CombinedPeriodContent(
                     fontSize = 12.sp
                 )
             } else {
-                val inactiveReason = if (validateLivePrice) {
+                val liveInactiveReason = if (validateLivePrice) {
                     SignalFreshness.inactiveReason(
                         signal = timeframeSignal,
                         livePrice = livePrice,
@@ -1935,6 +1941,17 @@ private fun CombinedPeriodContent(
                 } else {
                     null
                 }
+                val candleInactiveReason = if (
+                    validateCandleFreshness && timeframeSignal.type != SignalType.HOLD
+                ) {
+                    xauCandleInactiveReason(
+                        candleTime = timeframe.lastCandleTime,
+                        intervalMinutes = timeframeIntervalMinutes(timeframe.timeframeLabel)
+                    )
+                } else {
+                    null
+                }
+                val inactiveReason = liveInactiveReason ?: candleInactiveReason
 
                 if (inactiveReason != null) {
                     Text(
@@ -2018,6 +2035,11 @@ private fun CombinedPeriodContent(
             quoteObservedAtMillis = quoteObservedAtMillis,
             quoteFresh = quoteFresh,
             validateLivePrice = validateLivePrice,
+            candleFreshnessIntervalMinutes = if (validateCandleFreshness) {
+                timeframeIntervalMinutes(primaryTimeframeLabel)
+            } else {
+                null
+            },
             entryPriceNote = ayiarCombinedPricing?.sourceNote
         )
     }
@@ -2123,6 +2145,7 @@ private fun TradingSignalContent(
     quoteObservedAtMillis: Long? = null,
     quoteFresh: Boolean = false,
     validateLivePrice: Boolean = true,
+    candleFreshnessIntervalMinutes: Int? = null,
     entryPriceNote: String? = null
 ) {
     val formatPrice: (Double) -> String = { value ->
@@ -2133,7 +2156,7 @@ private fun TradingSignalContent(
         }
     }
 
-    val inactiveReason = if (validateLivePrice) {
+    val liveInactiveReason = if (validateLivePrice) {
         SignalFreshness.inactiveReason(
             signal = signal,
             livePrice = livePrice,
@@ -2143,6 +2166,17 @@ private fun TradingSignalContent(
     } else {
         null
     }
+    val candleInactiveReason = if (
+        candleFreshnessIntervalMinutes != null && signal.type != SignalType.HOLD
+    ) {
+        xauCandleInactiveReason(
+            candleTime = candleTime,
+            intervalMinutes = candleFreshnessIntervalMinutes
+        )
+    } else {
+        null
+    }
+    val inactiveReason = liveInactiveReason ?: candleInactiveReason
 
     val signalIsInactive = inactiveReason != null
 
@@ -2398,6 +2432,49 @@ Card(
     }  
 }
 
+}
+
+private fun timeframeIntervalMinutes(label: String): Int? {
+    return when (label) {
+        "۵ دقیقه" -> 5
+        "۱۵ دقیقه" -> 15
+        "۳۰ دقیقه" -> 30
+        "۱ ساعت" -> 60
+        "۴ ساعت" -> 240
+        "روزانه" -> 0
+        else -> null
+    }
+}
+
+/**
+ * سیگنال XAU فقط تا زمانی قابل اجراست که کندل تازه‌ای در بازه مورد انتظار دریافت شود.
+ * این کنترل فقط در کارت‌های انس فعال می‌شود و منطق عیار را تغییر نمی‌دهد.
+ */
+private fun xauCandleInactiveReason(
+    candleTime: Long?,
+    intervalMinutes: Int?,
+    nowMillis: Long = System.currentTimeMillis()
+): String? {
+    val lastCloseTime = candleTime
+        ?: return "زمان آخرین کندل مشخص نیست؛ سیگنال تا دریافت داده معتبر غیرفعال است."
+
+    if (lastCloseTime <= 0L || lastCloseTime > nowMillis) {
+        return "زمان آخرین کندل معتبر نیست؛ سیگنال فعلاً قابل اجرا نیست."
+    }
+
+    val durationMinutes = intervalMinutes
+        ?.takeIf { it > 0 }
+        ?.toLong()
+        ?: 1440L
+    val intervalMillis = durationMinutes * 60_000L
+    val allowedAgeMillis = intervalMillis + 120_000L
+    val candleAgeMillis = nowMillis - lastCloseTime
+
+    if (candleAgeMillis > allowedAgeMillis) {
+        return "از بسته‌شدن آخرین کندل مدت بیشتری از بازه معمول گذشته و کندل تازه‌ای دریافت نشده است؛ احتمالاً بازار انس بسته است یا دریافت داده متوقف شده. تا دریافت کندل جدید، این سیگنال قابل اجرا نیست."
+    }
+
+    return null
 }
 
 private fun chartRefreshIntervalMillis(intervalMinutes: Int): Long {
