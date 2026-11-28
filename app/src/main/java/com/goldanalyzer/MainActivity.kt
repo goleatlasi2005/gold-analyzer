@@ -666,7 +666,12 @@ forceRefresh = true
 
             // تحلیل بعدی دقیقاً پس از بسته‌شدن کندل بعدی انجام می‌شود؛
             // نه به فاصله کامل تایم‌فریم از زمان پایان درخواست قبلی.
-            delay(delayUntilNextCandleCloseMillis(intervalMinutes))
+            delay(
+    xauNextAnalysisDelayMillis(
+        analysis = xauTimeframeAnalysis,
+        intervalMinutes = intervalMinutes
+    )
+)
         }
     }
 }
@@ -2501,7 +2506,32 @@ private fun delayUntilNextCandleCloseMillis(intervalMinutes: Int): Long {
     // چند ثانیه فرصت برای نهایی‌شدن و انتشار کندل در منبع داده.
     return remaining + 5_000L
 }
+private fun xauNextAnalysisDelayMillis(
+    analysis: TimeframeAnalysis?,
+    intervalMinutes: Int
+): Long {
+    val lastCloseTime = analysis
+        ?.completedCandles
+        ?.lastOrNull()
+        ?.closeTime
 
+    if (lastCloseTime == null || lastCloseTime <= 0L) {
+        return 2 * 60 * 1000L
+    }
+
+    val durationMillis = (
+        if (intervalMinutes > 0) intervalMinutes.toLong()
+        else 1440L
+    ) * 60_000L
+
+    val candleAge = System.currentTimeMillis() - lastCloseTime
+
+    if (candleAge > durationMillis + 120_000L) {
+        return 2 * 60 * 1000L
+    }
+
+    return delayUntilNextCandleCloseMillis(intervalMinutes)
+}
 private fun calculatePercentChange(
 current: Double,
 previous: Double?
