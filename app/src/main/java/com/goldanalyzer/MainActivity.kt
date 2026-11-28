@@ -1219,6 +1219,33 @@ if (talasanj != null && ara != null) {
         color = TextGray
     )
 }
+if (tgju != null && ara != null) {
+    val differenceTgjuAra = kotlin.math.abs(
+        tgju.currentPriceRial - ara.currentPriceRial
+    )
+
+    val differencePercentTgjuAra =
+        if (tgju.currentPriceRial > 0)
+            differenceTgjuAra / tgju.currentPriceRial * 100.0
+        else 0.0
+
+    Spacer(modifier = Modifier.height(12.dp))
+
+    Text(
+        "اختلاف TGJU و نرخ‌آرا: ${
+            String.format(Locale.US, "%,.0f", differenceTgjuAra)
+        } ریال",
+        fontWeight = FontWeight.Bold,
+        color = TextDark
+    )
+
+    Text(
+        "اختلاف درصدی: ${
+            String.format(Locale.US, "%.2f", differencePercentTgjuAra)
+        }٪",
+        color = TextGray
+    )
+}
     if (mesghalPrices == null && !priceLoading) {
         Text("قیمت مظنه از هیچ‌کدام از منابع دریافت نشد.", color = Red)
     }
