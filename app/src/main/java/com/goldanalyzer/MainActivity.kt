@@ -1304,9 +1304,10 @@ if (selectedMarket != "طلای ۱۸ عیار") {
                                 TradingSignalContent(  
                                     signal = ayiarSignalPricing?.signal ?: tradingSignal,  
                                     candleCount = activeTimeframeAnalysis.completedCandles.size,  
-                                    candleTime = activeTimeframeAnalysis.completedCandles.lastOrNull()?.closeTime,
+                                    candleTime = activeTimeframeAnalysis.completedCandles.lastOrNull()?.closeTime,  
 oneWayMarket = true,
-validateLivePrice = false
+validateLivePrice = false,
+entryPriceNote = ayiarSignalPricing?.sourceNote
                                     )
                             }  
                         }  
@@ -1392,7 +1393,9 @@ if (selectedMarket != "طلای ۱۸ عیار") {
                 error = shortTermCombinedError,
                 primaryTimeframeLabel = "۳۰ دقیقه",
                 oneWayMarket = true,
-                validateLivePrice = false
+                validateLivePrice = false,
+                ayiarOrderBook = ayiarOrderBook,
+                ayiarCurrentPrice = ayiarQuote?.currentPrice
             )
         }
 
@@ -1443,7 +1446,9 @@ quoteFresh = xauQuoteFresh
             error = mediumTermCombinedError,
             primaryTimeframeLabel = "روزانه",
             oneWayMarket = true,
-            validateLivePrice = false
+            validateLivePrice = false,
+            ayiarOrderBook = ayiarOrderBook,
+            ayiarCurrentPrice = ayiarQuote?.currentPrice
         )
     }
 
@@ -1850,7 +1855,9 @@ private fun CombinedPeriodContent(
     livePrice: Double? = null,
     quoteObservedAtMillis: Long? = null,
     quoteFresh: Boolean = false,
-    validateLivePrice: Boolean = true
+    validateLivePrice: Boolean = true,
+    ayiarOrderBook: AyiarOrderBook? = null,
+    ayiarCurrentPrice: Double? = null
 ) {
     if (period == null) {
         if (loading) {
@@ -1985,8 +1992,20 @@ private fun CombinedPeriodContent(
             fontWeight = FontWeight.Bold
         )
 
+        val ayiarCombinedPricing = if (oneWayMarket) {
+            period.combinedSignal?.let { signal ->
+                priceAyiarSignal(
+                    signal = signal,
+                    orderBook = ayiarOrderBook,
+                    currentQuotePrice = ayiarCurrentPrice
+                )
+            }
+        } else {
+            null
+        }
+
         TradingSignalContent(
-            signal = period.combinedSignal,
+            signal = ayiarCombinedPricing?.signal ?: period.combinedSignal,
             candleCount = primary?.candleCount ?: 0,
             candleTime = primary?.lastCandleTime,
             oneWayMarket = oneWayMarket,
@@ -1995,7 +2014,8 @@ private fun CombinedPeriodContent(
             livePrice = livePrice,
             quoteObservedAtMillis = quoteObservedAtMillis,
             quoteFresh = quoteFresh,
-            validateLivePrice = validateLivePrice
+            validateLivePrice = validateLivePrice,
+            entryPriceNote = ayiarCombinedPricing?.sourceNote
         )
     }
 
@@ -2099,7 +2119,8 @@ private fun TradingSignalContent(
     livePrice: Double? = null,
     quoteObservedAtMillis: Long? = null,
     quoteFresh: Boolean = false,
-    validateLivePrice: Boolean = true
+    validateLivePrice: Boolean = true,
+    entryPriceNote: String? = null
 ) {
     val formatPrice: (Double) -> String = { value ->
         if (priceInUsd) {
@@ -2224,10 +2245,19 @@ private fun TradingSignalContent(
                 )
             }
 
+            entryPriceNote?.takeIf { signal.type != SignalType.HOLD }?.let { note ->
+                Text(
+                    note,
+                    color = TextGray,
+                    fontSize = 11.sp
+                )
+            }
+
             if (
                 showRiskLevels &&
                 signal.type != SignalType.HOLD &&
-                !signalIsInactive
+                !signalIsInactive &&
+                !(oneWayMarket && signal.type == SignalType.SELL)
             ) {
                 Text(
                     "حد ضرر: ${formatPrice(signal.stopLoss)}",
@@ -2264,6 +2294,12 @@ private fun TradingSignalContent(
                 Text(
                     "سطوح حد سود و ضرر این سیگنال نمایش داده نمی‌شوند؛ قیمت ورود قبلی دیگر معتبر نیست.",
                     color = Red,
+                    fontSize = 12.sp
+                )
+            } else if (oneWayMarket && signal.type == SignalType.SELL && showRiskLevels) {
+                Text(
+                    "این سیگنال برای خروج از واحدهای موجود است؛ حد سود و ضرر معامله فروش استقراضی محاسبه نمی‌شود.",
+                    color = TextGray,
                     fontSize = 12.sp
                 )
             } else if (signal.type == SignalType.HOLD) {
@@ -2412,7 +2448,7 @@ return isTradingDay && now.hour >= 12 && now.hour < 18
 }
 private data class AyiarSignalPricing(
     val signal: TradingSignal,
-    val sourceNote: String
+    val sourceNote: String?
 )
 
 private fun priceAyiarSignal(
@@ -2423,7 +2459,11 @@ private fun priceAyiarSignal(
 
     val fallback = AyiarSignalPricing(
         signal = signal,
-        sourceNote = "قیمت تخمینی بر اساس آخرین کندل کامل؛ دفتر سفارش معتبر در دسترس نیست."
+        sourceNote = if (signal.type == SignalType.HOLD) {
+            null
+        } else {
+            "قیمت مرجع بر اساس قیمت بسته‌شدن آخرین کندل کامل است؛ دفتر سفارش معتبر در دسترس نیست."
+        }
     )
 
     if (signal.type == SignalType.HOLD) {
@@ -2503,9 +2543,9 @@ private fun priceAyiarSignal(
             riskRewardRatio = 3.0
         ),
         sourceNote = if (signal.type == SignalType.BUY) {
-            "قیمت ورود بر اساس بهترین سفارش فروش (Ask) در دفتر سفارش TSETMC محاسبه شده است."
+            "قیمت ورود بر اساس بهترین سفارش فروش (Ask) ثبت‌شده در دفتر سفارش TSETMC محاسبه شده است."
         } else {
-            "قیمت فروش بر اساس بهترین سفارش خرید (Bid) در دفتر سفارش TSETMC محاسبه شده است."
+            "قیمت فروش بر اساس بهترین سفارش خرید (Bid) ثبت‌شده در دفتر سفارش TSETMC محاسبه شده است."
         }
     )
 }
