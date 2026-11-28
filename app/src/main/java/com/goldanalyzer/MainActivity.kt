@@ -1143,6 +1143,10 @@ Text(
                 fontWeight = FontWeight.Bold
             )
             Text(
+    "زمان قیمت: ${formatTehranTime(ara.observedAtMillis)}",
+    color = TextGray
+)
+            Text(
                 if (ara.isFresh) "داده تازه" else "هشدار: داده تازه نیست",
                 color = if (ara.isFresh) Green else Red
             )
