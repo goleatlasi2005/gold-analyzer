@@ -1115,6 +1115,10 @@ Text(
                 fontWeight = FontWeight.Bold
             )
             Text(
+    "زمان قیمت: ${formatTehranTime(tgju.observedAtMillis)}",
+    color = TextGray
+)
+            Text(
                 if (tgju.isFresh) "داده تازه" else "هشدار: داده تازه نیست",
                 color = if (tgju.isFresh) Green else Red
             )
