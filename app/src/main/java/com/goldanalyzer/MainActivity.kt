@@ -1951,7 +1951,7 @@ private fun CombinedPeriodContent(
                 } else {
                     null
                 }
-                val inactiveReason = liveInactiveReason ?: candleInactiveReason
+                val inactiveReason = candleInactiveReason ?: liveInactiveReason
 
                 if (inactiveReason != null) {
                     Text(
@@ -2176,7 +2176,7 @@ private fun TradingSignalContent(
     } else {
         null
     }
-    val inactiveReason = liveInactiveReason ?: candleInactiveReason
+    val inactiveReason = candleInactiveReason ?: liveInactiveReason
 
     val signalIsInactive = inactiveReason != null
 
