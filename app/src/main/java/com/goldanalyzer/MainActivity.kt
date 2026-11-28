@@ -1173,7 +1173,9 @@ Text(
         )
 
         val differencePercent =
-            difference / talasanj.currentPriceRial * 100.0
+    if (talasanj.currentPriceRial > 0)
+        difference / talasanj.currentPriceRial * 100.0
+    else 0.0
 
         Spacer(modifier = Modifier.height(12.dp))
 
