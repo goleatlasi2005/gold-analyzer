@@ -1057,7 +1057,19 @@ Mt5SourceDrawer()
     val ara = mesghalPrices?.nerkhAra
 
     Text("قیمت مظنه طلا")
-
+Text(
+    when {
+        mesghalQuote === talasanj && talasanj != null ->
+            "منبع قیمت فعلی: طلاسنج"
+        mesghalQuote === tgju && tgju != null ->
+            "منبع قیمت فعلی: TGJU"
+        mesghalQuote === ara && ara != null ->
+            "منبع قیمت فعلی: نرخ‌آرا"
+        else -> "منبع قیمت فعلی مشخص نیست"
+    },
+    color = DarkGold,
+    fontWeight = FontWeight.Bold
+)
     ExpandableSection(
         title = "منبع اصلی: طلاسنج",
         initiallyExpanded = true
