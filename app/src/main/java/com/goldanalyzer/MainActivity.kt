@@ -1248,11 +1248,48 @@ if (tgju != null && ara != null) {
         color = TextGray
     )
 }
+if (talasanj != null && tgju != null && ara != null) {
+    val diffTalasanjTgju = kotlin.math.abs(
+        talasanj.currentPriceRial - tgju.currentPriceRial
+    )
+    val diffTalasanjAra = kotlin.math.abs(
+        talasanj.currentPriceRial - ara.currentPriceRial
+    )
+    val diffTgjuAra = kotlin.math.abs(
+        tgju.currentPriceRial - ara.currentPriceRial
+    )
+
+    val maxDifference = maxOf(
+        diffTalasanjTgju,
+        diffTalasanjAra,
+        diffTgjuAra
+    )
+
+    val maxDifferenceSource = when (maxDifference) {
+        diffTalasanjTgju -> "طلاسنج و TGJU"
+        diffTalasanjAra -> "طلاسنج و نرخ‌آرا"
+        else -> "TGJU و نرخ‌آرا"
+    }
+
+    Spacer(modifier = Modifier.height(12.dp))
+
+    Text(
+        "بیشترین اختلاف قیمت بین $maxDifferenceSource است.",
+        fontWeight = FontWeight.Bold,
+        color = DarkGold
+    )
+
+    Text(
+        "مقدار اختلاف: ${
+            String.format(Locale.US, "%,.0f", maxDifference)
+        } ریال",
+        color = TextDark
+    )
+}
     if (mesghalPrices == null && !priceLoading) {
         Text("قیمت مظنه از هیچ‌کدام از منابع دریافت نشد.", color = Red)
     }
 }
-
 
 else -> {
     key(tgjuPanelRefreshKey) {
