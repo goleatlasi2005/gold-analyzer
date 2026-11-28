@@ -1192,7 +1192,33 @@ Text(
             color = TextGray
         )
     }
+if (talasanj != null && ara != null) {
+    val differenceAra = kotlin.math.abs(
+        talasanj.currentPriceRial - ara.currentPriceRial
+    )
 
+    val differencePercentAra =
+        if (talasanj.currentPriceRial > 0)
+            differenceAra / talasanj.currentPriceRial * 100.0
+        else 0.0
+
+    Spacer(modifier = Modifier.height(12.dp))
+
+    Text(
+        "اختلاف طلاسنج و نرخ‌آرا: ${
+            String.format(Locale.US, "%,.0f", differenceAra)
+        } ریال",
+        fontWeight = FontWeight.Bold,
+        color = TextDark
+    )
+
+    Text(
+        "اختلاف درصدی: ${
+            String.format(Locale.US, "%.2f", differencePercentAra)
+        }٪",
+        color = TextGray
+    )
+}
     if (mesghalPrices == null && !priceLoading) {
         Text("قیمت مظنه از هیچ‌کدام از منابع دریافت نشد.", color = Red)
     }
