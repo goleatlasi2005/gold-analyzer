@@ -664,7 +664,9 @@ forceRefresh = true
                 xauAnalysisLoading = false
             }
 
-            delay(chartRefreshIntervalMillis(intervalMinutes))
+            // تحلیل بعدی دقیقاً پس از بسته‌شدن کندل بعدی انجام می‌شود؛
+            // نه به فاصله کامل تایم‌فریم از زمان پایان درخواست قبلی.
+            delay(delayUntilNextCandleCloseMillis(intervalMinutes))
         }
     }
 }
@@ -2404,6 +2406,23 @@ return if (intervalMinutes <= 0) {
 } else {
 intervalMinutes * 60 * 1000L
 }
+}
+
+// زمان اجرای تحلیل بعدی را با مرز بسته‌شدن کندل‌ها هماهنگ می‌کند.
+// مرزهای کندل‌های منبع XAU بر مبنای زمان Unix هستند.
+private fun delayUntilNextCandleCloseMillis(intervalMinutes: Int): Long {
+    val intervalMillis = if (intervalMinutes <= 0) {
+        24L * 60L * 60L * 1000L
+    } else {
+        intervalMinutes.toLong() * 60_000L
+    }
+
+    val now = System.currentTimeMillis()
+    val elapsedInCurrentCandle = now % intervalMillis
+    val remaining = intervalMillis - elapsedInCurrentCandle
+
+    // چند ثانیه فرصت برای نهایی‌شدن و انتشار کندل در منبع داده.
+    return remaining + 5_000L
 }
 
 private fun calculatePercentChange(
