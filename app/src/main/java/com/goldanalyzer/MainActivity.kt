@@ -651,7 +651,8 @@ LaunchedEffect(selectedMarket, selectedTimeframe) {
                 xauTimeframeAnalysis =
                     TimeframeAnalysisStore.getAnalysis(
                         repository = xauCandleRepository,
-                        intervalMinutes = intervalMinutes.takeIf { it > 0 }
+intervalMinutes = intervalMinutes.takeIf { it > 0 },
+forceRefresh = true
                     )
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
